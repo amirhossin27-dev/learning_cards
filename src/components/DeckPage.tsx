@@ -1,16 +1,19 @@
-import { ArrowLeft, Download, MoreHorizontal, Pencil, Play, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Ellipsis, Pencil, Play, Plus, RotateCcw, Search, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { exportCsv } from '../lib/csv';
 import { downloadText, slugify } from '../lib/download';
 import { href, navigate } from '../lib/router';
 import { resolveLang, useSpeech } from '../lib/speech';
-import { actions, deckStats, MASTERED_BOX, useAppData } from '../lib/store';
+import { useNow } from '../hooks/useToday';
+import { DeckIcon } from '../lib/deckIcons';
+import { BOX_COUNT, BOX_LABELS, DAY, endOfDay, isDue, isNew } from '../lib/srs';
+import { actions, deckStats, newCardsLeft, planToday, useAppData } from '../lib/store';
 import type { Card } from '../types';
+import { BoxBar } from './BoxBar';
 import { CardEditor } from './CardEditor';
 import { DeckEditor } from './DeckEditor';
 import { ImportDialog } from './ImportDialog';
 import { Modal } from './Modal';
-import { ProgressRing } from './ProgressRing';
 import { SpeakButton } from './SpeakButton';
 import { toast } from './Toast';
 
@@ -23,16 +26,25 @@ type Dialog =
 
 function BoxDots({ box }: { box: number }) {
   return (
-    <span className="box-dots" title={box >= MASTERED_BOX ? 'Gemeistert' : `Stufe ${box} von ${MASTERED_BOX}`}>
-      {Array.from({ length: MASTERED_BOX }, (_, i) => (
-        <i key={i} className={i < box ? 'is-on' : ''} />
+    <span className="box-dots" title={BOX_LABELS[box]} aria-label={BOX_LABELS[box]}>
+      {Array.from({ length: BOX_COUNT }, (_, i) => (
+        <i key={i} className={i <= box ? 'is-on' : ''} />
       ))}
     </span>
   );
 }
 
+function dueLabel(card: Card, now: number): string {
+  if (isNew(card)) return 'neu';
+  if (isDue(card, now)) return 'fällig';
+  const days = Math.ceil(((card.due ?? 0) - endOfDay(now)) / DAY);
+  return days <= 1 ? 'morgen' : `in ${days} Tagen`;
+}
+
 export function DeckPage({ deckId }: { deckId: string }) {
-  const { decks, cards, settings } = useAppData();
+  const data = useAppData();
+  const { decks, cards, settings } = data;
+  const now = useNow();
   const deck = decks.find((d) => d.id === deckId);
   const deckCards = useMemo(() => cards.filter((c) => c.deckId === deckId), [cards, deckId]);
   const tags = useMemo(() => [...new Set(deckCards.map((c) => c.tag).filter(Boolean) as string[])], [deckCards]);
@@ -70,8 +82,12 @@ export function DeckPage({ deckId }: { deckId: string }) {
     );
   }
 
-  const stats = deckStats(deckCards);
+  const stats = deckStats(deckCards, now);
   const tagCards = tag ? deckCards.filter((c) => c.tag === tag) : deckCards;
+  const tagPlan = planToday(tagCards, newCardsLeft(data, now), [], now);
+  const todayCount = tagPlan.due.length + tagPlan.fresh.length;
+  const tagNew = tagCards.filter(isNew).length;
+  const scope = { name: 'study', id: deck.id, tag: tag ?? undefined } as const;
 
   const exportDeck = () => {
     setMenuOpen(false);
@@ -96,46 +112,61 @@ export function DeckPage({ deckId }: { deckId: string }) {
 
   return (
     <div className="page">
-      <a className="back-link" href={href({ name: 'home' })}>
+      <a className="back-link" href={href({ name: 'decks' })}>
         <ArrowLeft size={18} /> Alle Stapel
       </a>
 
-      <section className={`deck-hero grad-${deck.color}`}>
+      <section className="deck-hero" data-marker={deck.color % 6}>
+        <i className="tab" aria-hidden="true" />
         <div className="deck-hero__main">
-          <span className="deck-hero__emoji">{deck.emoji}</span>
+          <span className="deck-hero__icon">
+            <DeckIcon name={deck.icon} size={22} />
+          </span>
           <div>
             <h1>{deck.name}</h1>
             {deck.description && <p>{deck.description}</p>}
           </div>
         </div>
-        <div className="deck-hero__stats">
-          <ProgressRing value={stats.progress} size={76} stroke={7} />
-          <dl>
-            <div>
-              <dt>Neu</dt>
-              <dd>{stats.fresh}</dd>
-            </div>
-            <div>
-              <dt>Lernend</dt>
-              <dd>{stats.learning}</dd>
-            </div>
-            <div>
-              <dt>Gemeistert</dt>
-              <dd>{stats.mastered}</dd>
-            </div>
-          </dl>
-        </div>
+        <dl className="deck-hero__stats">
+          <div>
+            <dt>Heute dran</dt>
+            <dd>{todayCount}</dd>
+          </div>
+          <div>
+            <dt>Neu</dt>
+            <dd>{stats.fresh}</dd>
+          </div>
+          <div>
+            <dt>Gemeistert</dt>
+            <dd>{stats.mastered}</dd>
+          </div>
+        </dl>
+        <BoxBar boxes={stats.boxes} legend size="md" />
         <div className="deck-hero__actions">
-          <a
-            className={`btn btn--light btn--lg ${tagCards.length === 0 ? 'is-disabled' : ''}`}
-            href={href({ name: 'study', id: deck.id, tag: tag ?? undefined })}
-            aria-disabled={tagCards.length === 0}
-          >
-            <Play size={18} fill="currentColor" /> {tag ? `${tag} lernen` : 'Lernen starten'}
-          </a>
+          {todayCount > 0 || tagCards.length === 0 ? (
+            <a
+              className={`btn btn--primary btn--lg ${tagCards.length === 0 ? 'is-disabled' : ''}`}
+              href={href(scope)}
+              aria-disabled={tagCards.length === 0}
+            >
+              <Play size={18} fill="currentColor" /> {tag ? `${tag} lernen` : 'Lernen starten'}
+            </a>
+          ) : (
+            <>
+              {/* Today's new-card budget is used up elsewhere, but this deck still has unseen cards. */}
+              {tagNew > 0 && (
+                <a className="btn btn--primary btn--lg" href={href({ ...scope, mode: 'new' })}>
+                  <Plus size={18} /> Neue Karten lernen
+                </a>
+              )}
+              <a className={`btn btn--lg ${tagNew > 0 ? 'btn--secondary' : 'btn--primary'}`} href={href({ ...scope, mode: 'extra' })}>
+                <Sparkles size={18} /> Extra-Runde
+              </a>
+            </>
+          )}
           <div className="menu" ref={menu}>
-            <button className="btn btn--glass btn--icon" onClick={() => setMenuOpen((o) => !o)} aria-label="Weitere Aktionen" aria-expanded={menuOpen}>
-              <MoreHorizontal size={20} />
+            <button className="btn btn--secondary btn--icon btn--lg" onClick={() => setMenuOpen((o) => !o)} aria-label="Weitere Aktionen" aria-expanded={menuOpen}>
+              <Ellipsis size={20} />
             </button>
             {menuOpen && (
               <div className="menu__panel" role="menu">
@@ -167,7 +198,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
                       action: () => {
                         actions.deleteDeck(deck.id);
                         toast('Stapel gelöscht');
-                        navigate({ name: 'home' });
+                        navigate({ name: 'decks' });
                       },
                     }),
                   true,
@@ -231,6 +262,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
                 </div>
                 <div className="card-row__meta">
                   {c.tag && !tag && <span className="chip chip--sm hide-mobile">{c.tag}</span>}
+                  <span className={`card-row__due ${isDue(c, now) ? 'is-due' : ''}`}>{dueLabel(c, now)}</span>
                   <BoxDots box={c.box} />
                   {supported && (
                     <SpeakButton

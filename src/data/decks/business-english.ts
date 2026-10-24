@@ -124,7 +124,7 @@ export const businessEnglishDeck: SeedDeck = {
   id: 'business-english',
   name: 'Corporate Business English',
   description: '100 Karten: Meetings, E-Mails, Projekte, Verhandlungen, Grammatik-Eselsbrücken und False Friends.',
-  emoji: '💼',
+  icon: 'briefcase',
   color: 0,
   frontLang: 'en-US',
   backLang: 'de-DE',

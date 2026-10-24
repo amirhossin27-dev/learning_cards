@@ -11,8 +11,17 @@ export interface Card {
   note?: string;
   /** Optional category used for filtering inside a deck. */
   tag?: string;
-  /** Leitner box: 0 = new / forgotten, 5 = mastered. */
+  /** Leitner box ("Fach") 0–4, derived from the review interval. 4 = mastered. */
   box: number;
+  /** Days until the next review; 0 while the card is new or being relearned. */
+  interval?: number;
+  /** Multiplier for the next interval (SM-2 style ease factor). */
+  ease?: number;
+  /** Timestamp when the card is due again. Undefined for new cards. */
+  due?: number;
+  reps?: number;
+  /** How often a learned card was forgotten again. */
+  lapses?: number;
   lastReviewed?: number;
   createdAt: number;
 }
@@ -21,8 +30,11 @@ export interface Deck {
   id: string;
   name: string;
   description: string;
-  emoji: string;
-  /** Index into the gradient palette (see styles). */
+  /** Key into the deck icon set (see lib/deckIcons). */
+  icon: string;
+  /** Legacy emoji symbol from version 1, kept so old exports stay readable. */
+  emoji?: string;
+  /** Index into the marker palette (see styles). */
   color: number;
   frontLang: Lang;
   backLang: Lang;
@@ -40,6 +52,17 @@ export interface Settings {
   autoSpeak: boolean;
   direction: Direction;
   sessionSize: number;
+  /** Answers per day that count as reaching the daily goal. */
+  dailyGoal: number;
+  /** New cards introduced per day across all decks. */
+  newPerDay: number;
+}
+
+export interface DayLog {
+  /** Answers given that day, including extra rounds. */
+  reviews: number;
+  /** Cards studied for the very first time that day. */
+  fresh: number;
 }
 
 export interface AppData {
@@ -49,4 +72,6 @@ export interface AppData {
   settings: Settings;
   /** Built-in deck ids that have been seeded at least once (so deleting one sticks). */
   seeded: string[];
+  /** Study log keyed by local date (YYYY-MM-DD). */
+  history: Record<string, DayLog>;
 }

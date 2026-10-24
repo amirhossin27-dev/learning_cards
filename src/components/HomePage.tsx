@@ -1,13 +1,21 @@
-import { Flame, Layers, Play, Plus, Trophy, Upload } from 'lucide-react';
+import { Play, Plus, Sparkles, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useToday } from '../hooks/useToday';
 import { href } from '../lib/router';
-import { deckStats, useAppData } from '../lib/store';
-import type { Card, Deck } from '../types';
+import { addDays, endOfDay, isNew } from '../lib/srs';
+import { deckStats, minutesFor, useAppData } from '../lib/store';
+import type { Card } from '../types';
+import { BoxBar } from './BoxBar';
 import { DeckEditor } from './DeckEditor';
+import { DeckTile } from './DeckTile';
+import { GoalCard } from './GoalCard';
+import { Heatmap } from './Heatmap';
 import { ImportDialog } from './ImportDialog';
 
-function greeting() {
-  const h = new Date().getHours();
+const DATE = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+
+function greeting(now: number) {
+  const h = new Date(now).getHours();
   if (h < 5) return 'Noch wach?';
   if (h < 11) return 'Guten Morgen';
   if (h < 17) return 'Hallo';
@@ -15,44 +23,9 @@ function greeting() {
   return 'Gute Nacht';
 }
 
-function reviewedToday(cards: Card[]) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  return cards.filter((c) => (c.lastReviewed ?? 0) >= start.getTime()).length;
-}
-
-function DeckTile({ deck, cards }: { deck: Deck; cards: Card[] }) {
-  const stats = deckStats(cards);
-  return (
-    <article className="deck-tile">
-      <a className="deck-tile__link" href={href({ name: 'deck', id: deck.id })} aria-label={deck.name} />
-      <div className={`deck-tile__cover grad-${deck.color}`}>
-        <span className="deck-tile__emoji">{deck.emoji}</span>
-        <span className="deck-tile__count">{stats.total} Karten</span>
-      </div>
-      <div className="deck-tile__body">
-        <h3>{deck.name}</h3>
-        <p>{deck.description}</p>
-        <div className="deck-tile__footer">
-          <div className="mini-progress" title={`${stats.mastered} von ${stats.total} gemeistert`}>
-            <div className="mini-progress__bar">
-              <div className={`mini-progress__fill grad-${deck.color}`} style={{ width: `${stats.progress * 100}%` }} />
-            </div>
-            <span>{Math.round(stats.progress * 100)}%</span>
-          </div>
-          {stats.total > 0 && (
-            <a className="play-btn" href={href({ name: 'study', id: deck.id })} aria-label={`${deck.name} lernen`}>
-              <Play size={18} fill="currentColor" />
-            </a>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 export function HomePage() {
-  const { decks, cards } = useAppData();
+  const { decks, cards, history } = useAppData();
+  const { now, plan, count, reviews, goal, streak } = useToday();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -62,74 +35,123 @@ export function HomePage() {
     return map;
   }, [cards]);
 
-  const total = deckStats(cards);
-  const today = reviewedToday(cards);
-  const lastDeck = useMemo(() => {
-    let best: Card | undefined;
-    for (const c of cards) if ((c.lastReviewed ?? 0) > (best?.lastReviewed ?? 0)) best = c;
-    return best ? decks.find((d) => d.id === best.deckId) : undefined;
-  }, [cards, decks]);
+  const todayByDeck = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of [...plan.due, ...plan.fresh]) map.set(c.deckId, (map.get(c.deckId) ?? 0) + 1);
+    return map;
+  }, [plan]);
+
+  const tomorrow = useMemo(() => {
+    const from = endOfDay(now);
+    const to = endOfDay(addDays(now, 1));
+    return cards.filter((c) => !isNew(c) && (c.due ?? 0) > from && (c.due ?? 0) <= to).length;
+  }, [cards, now]);
+
+  const all = deckStats(cards, now);
+  const goalCard = <GoalCard reviews={reviews} goal={goal} streak={streak} />;
 
   return (
-    <div className="page">
-      <section className="hero">
-        <div>
-          <p className="hero__eyebrow">{greeting()} 👋</p>
-          <h1>
-            Bereit für eine <span className="text-gradient">Runde Lernen?</span>
-          </h1>
-        </div>
-        <div className="stat-row">
-          <div className="stat-card">
-            <Layers size={18} />
-            <strong>{total.total}</strong>
-            <span>Karten</span>
-          </div>
-          <div className="stat-card">
-            <Trophy size={18} />
-            <strong>{total.mastered}</strong>
-            <span>gemeistert</span>
-          </div>
-          <div className="stat-card">
-            <Flame size={18} />
-            <strong>{today}</strong>
-            <span>heute gelernt</span>
-          </div>
-        </div>
-      </section>
-
-      {lastDeck && (
-        <a className={`continue-card grad-${lastDeck.color}`} href={href({ name: 'study', id: lastDeck.id })}>
-          <span className="continue-card__emoji">{lastDeck.emoji}</span>
-          <div>
-            <small>Weiterlernen</small>
-            <strong>{lastDeck.name}</strong>
-          </div>
-          <span className="continue-card__play">
-            <Play size={20} fill="currentColor" />
-          </span>
-        </a>
-      )}
-
-      <section>
-        <div className="section-head">
-          <h2>Deine Stapel</h2>
-          <div className="section-head__actions">
-            <button className="btn btn--ghost btn--sm" onClick={() => setImporting(true)}>
-              <Upload size={16} /> CSV importieren
+    <div className="page today">
+      <div className="today__main">
+        <section className="today__hero">
+          <p className="eyebrow">
+            {greeting(now)} · {DATE.format(now)}
+          </p>
+          {count > 0 ? (
+            <>
+              <h1>
+                <mark>
+                  {count} {count === 1 ? 'Karte' : 'Karten'}
+                </mark>{' '}
+                {count === 1 ? 'ist' : 'sind'} heute dran
+              </h1>
+              <p className="today__sub">
+                {[plan.due.length > 0 && `${plan.due.length} zum Wiederholen`, plan.fresh.length > 0 && `${plan.fresh.length} neu`]
+                  .filter(Boolean)
+                  .join(', ')}
+                {todayByDeck.size > 1 && ` aus ${todayByDeck.size} Stapeln`} · etwa {minutesFor(count)} Min.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1>
+                Alles <mark>erledigt</mark> für heute
+              </h1>
+              <p className="today__sub">
+                {reviews > 0 ? `Du hast heute ${reviews} ${reviews === 1 ? 'Karte' : 'Karten'} gelernt. ` : ''}
+                {tomorrow > 0 ? `Morgen ${tomorrow === 1 ? 'ist 1 Karte' : `sind ${tomorrow} Karten`} fällig.` : 'Morgen ist nichts fällig.'}
+              </p>
+            </>
+          )}
+          <div className="only-narrow">{goalCard}</div>
+          <div className="today__actions">
+            {count > 0 ? (
+              <a className="btn btn--primary btn--lg" href={href({ name: 'study' })}>
+                <Play size={18} fill="currentColor" /> Lernen starten
+              </a>
+            ) : (
+              <>
+                {all.fresh > 0 && (
+                  <a className="btn btn--primary btn--lg" href={href({ name: 'study', mode: 'new' })}>
+                    <Plus size={18} /> Neue Karten lernen
+                  </a>
+                )}
+                <a
+                  className={`btn btn--lg ${all.fresh > 0 ? 'btn--secondary' : 'btn--primary'} ${cards.length === 0 ? 'is-disabled' : ''}`}
+                  href={href({ name: 'study', mode: 'extra' })}
+                >
+                  <Sparkles size={18} /> Extra-Runde
+                </a>
+              </>
+            )}
+            <button className="btn btn--secondary btn--lg hide-mobile" onClick={() => setImporting(true)}>
+              <Upload size={18} /> CSV importieren
             </button>
           </div>
-        </div>
-        <div className="deck-grid">
-          {decks.map((d) => (
-            <DeckTile key={d.id} deck={d} cards={byDeck.get(d.id) ?? []} />
-          ))}
-          <button className="deck-tile deck-tile--new" onClick={() => setEditing(true)}>
-            <Plus size={28} />
-            <span>Neuer Stapel</span>
-          </button>
-        </div>
-      </section>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Deine Stapel</h2>
+            <a className="section-head__link" href={href({ name: 'decks' })}>
+              {decks.length} Stapel · {cards.length} Karten
+            </a>
+          </div>
+          <div className="deck-grid deck-grid--today">
+            {decks.map((d) => (
+              <DeckTile key={d.id} deck={d} stats={deckStats(byDeck.get(d.id) ?? [], now)} today={todayByDeck.get(d.id) ?? 0} />
+            ))}
+            <button className="deck-tile deck-tile--new" onClick={() => setEditing(true)}>
+              <Plus size={20} />
+              <span>Neuer Stapel</span>
+            </button>
+          </div>
+          <div className="deck-list--today">
+            {decks.map((d) => (
+              <DeckTile key={d.id} compact deck={d} stats={deckStats(byDeck.get(d.id) ?? [], now)} today={todayByDeck.get(d.id) ?? 0} />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <aside className="today__rail">
+        <section>
+          <h3 className="rail-title">Tagesziel</h3>
+          {goalCard}
+        </section>
+        <section>
+          <h3 className="rail-title">
+            Lernkalender <span>15 Wochen</span>
+          </h3>
+          <Heatmap history={history} goal={goal} weeks={15} now={now} />
+        </section>
+        <section>
+          <h3 className="rail-title">
+            Lernstand <span>{all.total} Karten</span>
+          </h3>
+          <BoxBar boxes={all.boxes} legend size="md" />
+        </section>
+      </aside>
 
       {editing && <DeckEditor onClose={() => setEditing(false)} />}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}

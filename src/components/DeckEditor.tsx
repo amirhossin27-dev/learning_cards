@@ -1,12 +1,12 @@
 import { useState } from 'react';
+import { DECK_ICONS, DeckIcon, ICON_KEYS, MARKER_NAMES } from '../lib/deckIcons';
 import { actions } from '../lib/store';
 import { navigate } from '../lib/router';
 import type { Deck, Lang } from '../types';
 import { Modal } from './Modal';
 import { toast } from './Toast';
 
-export const EMOJIS = ['📚', '💼', '🌍', '💻', '🏛️', '🧪', '🧠', '🎯', '🗣️', '📒', '⚖️', '💡', '🚀', '🎨', '🩺', '🎵'];
-export const COLOR_COUNT = 6;
+export const COLOR_COUNT = MARKER_NAMES.length;
 export const LANGS: { value: Lang; label: string }[] = [
   { value: 'de-DE', label: 'Deutsch' },
   { value: 'en-US', label: 'Englisch' },
@@ -23,14 +23,14 @@ interface Props {
 export function DeckEditor({ deck, onClose }: Props) {
   const [name, setName] = useState(deck?.name ?? '');
   const [description, setDescription] = useState(deck?.description ?? '');
-  const [emoji, setEmoji] = useState(deck?.emoji ?? '📚');
+  const [icon, setIcon] = useState(deck?.icon ?? 'layers');
   const [color, setColor] = useState(deck?.color ?? Math.floor(Math.random() * COLOR_COUNT));
   const [frontLang, setFrontLang] = useState<Lang>(deck?.frontLang.startsWith('en') ? 'en-US' : (deck?.frontLang ?? 'en-US'));
   const [backLang, setBackLang] = useState<Lang>(deck?.backLang.startsWith('en') ? 'en-US' : (deck?.backLang ?? 'de-DE'));
 
   const save = () => {
     if (!name.trim()) return;
-    const data = { name: name.trim(), description: description.trim(), emoji, color, frontLang, backLang };
+    const data = { name: name.trim(), description: description.trim(), icon, color, frontLang, backLang };
     if (deck) {
       actions.updateDeck(deck.id, data);
       toast('Stapel gespeichert');
@@ -60,8 +60,9 @@ export function DeckEditor({ deck, onClose }: Props) {
           save();
         }}
       >
-        <div className={`deck-preview grad-${color}`}>
-          <span className="deck-preview__emoji">{emoji}</span>
+        <div className="deck-preview" data-marker={color}>
+          <i className="tab" aria-hidden="true" />
+          <DeckIcon name={icon} size={20} />
           <strong>{name || 'Mein Stapel'}</strong>
         </div>
         <label className="field">
@@ -76,24 +77,35 @@ export function DeckEditor({ deck, onClose }: Props) {
         </label>
         <div className="field">
           <span>Symbol</span>
-          <div className="emoji-grid">
-            {EMOJIS.map((e) => (
-              <button type="button" key={e} className={e === emoji ? 'is-active' : ''} onClick={() => setEmoji(e)}>
-                {e}
+          <div className="icon-grid">
+            {ICON_KEYS.filter((k) => k !== 'inbox' || icon === 'inbox').map((k) => (
+              <button
+                type="button"
+                key={k}
+                className={k === icon ? 'is-active' : ''}
+                onClick={() => setIcon(k)}
+                aria-label={DECK_ICONS[k].label}
+                aria-pressed={k === icon}
+                title={DECK_ICONS[k].label}
+              >
+                <DeckIcon name={k} size={20} />
               </button>
             ))}
           </div>
         </div>
         <div className="field">
-          <span>Farbe</span>
+          <span>Marker-Farbe</span>
           <div className="color-grid">
-            {Array.from({ length: COLOR_COUNT }, (_, i) => (
+            {MARKER_NAMES.map((label, i) => (
               <button
                 type="button"
                 key={i}
-                className={`grad-${i} ${i === color ? 'is-active' : ''}`}
+                data-marker={i}
+                className={i === color ? 'is-active' : ''}
                 onClick={() => setColor(i)}
-                aria-label={`Farbe ${i + 1}`}
+                aria-label={label}
+                aria-pressed={i === color}
+                title={label}
               />
             ))}
           </div>

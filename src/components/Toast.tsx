@@ -1,3 +1,4 @@
+import { CircleCheck } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 
 interface ToastItem {
@@ -32,7 +33,8 @@ export function Toaster() {
     <div className="toaster" aria-live="polite">
       {items.map((t) => (
         <div key={t.id} className="toast">
-          {t.text}
+          <CircleCheck size={18} />
+          <span>{t.text}</span>
         </div>
       ))}
     </div>
