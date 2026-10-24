@@ -13,6 +13,8 @@ const THEMES: { value: Settings['theme']; label: string; icon: typeof Sun }[] = 
 ];
 
 const SESSION_SIZES = [10, 20, 50, 0];
+const DAILY_GOALS = [10, 20, 30, 50];
+const NEW_PER_DAY = [5, 10, 20, 50];
 
 export function SettingsPage() {
   const { settings, decks, cards } = useAppData();
@@ -56,10 +58,10 @@ export function SettingsPage() {
           </div>
           <div className="segmented" role="group" aria-label="Akzent">
             <button className={settings.englishAccent === 'en-US' ? 'is-active' : ''} onClick={() => set({ englishAccent: 'en-US' })}>
-              🇺🇸 <span>US</span>
+              <span>Amerikanisch</span>
             </button>
             <button className={settings.englishAccent === 'en-GB' ? 'is-active' : ''} onClick={() => set({ englishAccent: 'en-GB' })}>
-              🇬🇧 <span>UK</span>
+              <span>Britisch</span>
             </button>
           </div>
         </div>
@@ -104,6 +106,32 @@ export function SettingsPage() {
         <h2>Lernen</h2>
         <div className="setting">
           <div className="setting__label">
+            <strong>Tagesziel</strong>
+            <span>Antworten pro Tag, die als geschafft zählen</span>
+          </div>
+          <div className="segmented" role="group" aria-label="Tagesziel">
+            {DAILY_GOALS.map((n) => (
+              <button key={n} className={settings.dailyGoal === n ? 'is-active' : ''} onClick={() => set({ dailyGoal: n })}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting">
+          <div className="setting__label">
+            <strong>Neue Karten pro Tag</strong>
+            <span>So viele noch nie gelernte Karten kommen täglich dazu</span>
+          </div>
+          <div className="segmented" role="group" aria-label="Neue Karten pro Tag">
+            {NEW_PER_DAY.map((n) => (
+              <button key={n} className={settings.newPerDay === n ? 'is-active' : ''} onClick={() => set({ newPerDay: n })}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting">
+          <div className="setting__label">
             <strong>Karten pro Runde</strong>
           </div>
           <div className="segmented" role="group" aria-label="Karten pro Runde">
@@ -118,7 +146,10 @@ export function SettingsPage() {
 
       <section className="settings-group">
         <h2>Daten</h2>
-        <p className="form__hint">Deine Karten und dein Lernfortschritt werden nur auf diesem Gerät im Browser gespeichert.</p>
+        <p className="form__hint">
+          Deine Karten und dein Lernfortschritt werden nur auf diesem Gerät im Browser gespeichert. Einmal geöffnet, funktioniert die App auch ohne
+          Internet, am besten über „Zum Home-Bildschirm“ in Safari.
+        </p>
         <div className="settings-actions">
           <button className="btn btn--ghost" onClick={exportAll} disabled={cards.length === 0}>
             <Download size={16} /> Alle Karten als CSV

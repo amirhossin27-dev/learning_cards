@@ -1,12 +1,18 @@
-import { GraduationCap, Layers, Settings as SettingsIcon } from 'lucide-react';
+import { ChartColumn, House, Layers, Settings as SettingsIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { DeckPage } from './components/DeckPage';
+import { DecksPage } from './components/DecksPage';
 import { HomePage } from './components/HomePage';
+import { LogoMark } from './components/Logo';
 import { SettingsPage } from './components/SettingsPage';
+import { StatsPage } from './components/StatsPage';
 import { StudyPage } from './components/StudyPage';
 import { Toaster } from './components/Toast';
+import { useToday } from './hooks/useToday';
 import { href, useRoute, type Route } from './lib/router';
 import { useAppData } from './lib/store';
+
+const THEME_COLOR = { light: '#F4F4F1', dark: '#121316' };
 
 function useTheme(theme: 'dark' | 'light' | 'system') {
   useEffect(() => {
@@ -14,7 +20,7 @@ function useTheme(theme: 'dark' | 'light' | 'system') {
     const apply = () => {
       const resolved = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme;
       document.documentElement.dataset.theme = resolved;
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0b0c16' : '#f4f5fb');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[resolved]);
     };
     apply();
     media.addEventListener('change', apply);
@@ -22,18 +28,22 @@ function useTheme(theme: 'dark' | 'light' | 'system') {
   }, [theme]);
 }
 
-function NavLinks({ route }: { route: Route }) {
-  const decksActive = route.name === 'home' || route.name === 'deck' || route.name === 'study';
+function NavLinks({ route, due }: { route: Route; due: number }) {
+  const items = [
+    { to: { name: 'home' } as Route, label: 'Heute', icon: House, active: route.name === 'home', badge: due },
+    { to: { name: 'decks' } as Route, label: 'Stapel', icon: Layers, active: route.name === 'decks' || route.name === 'deck' },
+    { to: { name: 'stats' } as Route, label: 'Statistik', icon: ChartColumn, active: route.name === 'stats' },
+    { to: { name: 'settings' } as Route, label: 'Einstellungen', icon: SettingsIcon, active: route.name === 'settings' },
+  ];
   return (
     <>
-      <a className={`nav-link ${decksActive ? 'is-active' : ''}`} href={href({ name: 'home' })}>
-        <Layers size={22} />
-        <span>Stapel</span>
-      </a>
-      <a className={`nav-link ${route.name === 'settings' ? 'is-active' : ''}`} href={href({ name: 'settings' })}>
-        <SettingsIcon size={22} />
-        <span>Einstellungen</span>
-      </a>
+      {items.map(({ to, label, icon: Icon, active, badge }) => (
+        <a key={label} className={`nav-link ${active ? 'is-active' : ''}`} href={href(to)} aria-current={active ? 'page' : undefined}>
+          <Icon size={21} strokeWidth={1.9} />
+          <span>{label}</span>
+          {!!badge && <em aria-label={`${badge} fällig`}>{badge > 99 ? '99+' : badge}</em>}
+        </a>
+      ))}
     </>
   );
 }
@@ -41,34 +51,32 @@ function NavLinks({ route }: { route: Route }) {
 export function App() {
   const route = useRoute();
   const { decks, settings } = useAppData();
+  const { count } = useToday();
   useTheme(settings.theme);
 
-  const activeDeck = route.name === 'deck' || route.name === 'study' ? route.id : null;
+  const activeDeck = route.name === 'deck' ? route.id : null;
   const studying = route.name === 'study';
 
   return (
     <div className={`app ${studying ? 'app--studying' : ''}`}>
-      <div className="aurora" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-
       <aside className="sidebar">
         <a className="brand" href={href({ name: 'home' })}>
-          <span className="brand__logo">
-            <GraduationCap size={22} />
-          </span>
-          <span className="brand__name">Karteikarten</span>
+          <LogoMark size={30} />
+          <span>Karteikarten</span>
         </a>
-        <nav className="sidebar__nav">
-          <NavLinks route={route} />
+        <nav className="sidebar__nav" aria-label="Hauptnavigation">
+          <NavLinks route={route} due={count} />
         </nav>
         <div className="sidebar__decks">
-          <p className="sidebar__label">Stapel</p>
+          <p className="label">Stapel</p>
           {decks.map((d) => (
-            <a key={d.id} className={`sidebar__deck ${activeDeck === d.id ? 'is-active' : ''}`} href={href({ name: 'deck', id: d.id })}>
-              <span className={`sidebar__dot grad-${d.color}`}>{d.emoji}</span>
+            <a
+              key={d.id}
+              className={`sidebar__deck ${activeDeck === d.id ? 'is-active' : ''}`}
+              href={href({ name: 'deck', id: d.id })}
+              data-marker={d.color % 6}
+            >
+              <i className="marker-tab" aria-hidden="true" />
               <span>{d.name}</span>
             </a>
           ))}
@@ -77,13 +85,17 @@ export function App() {
 
       <main className="main">
         {route.name === 'home' && <HomePage />}
+        {route.name === 'decks' && <DecksPage />}
         {route.name === 'deck' && <DeckPage key={route.id} deckId={route.id} />}
-        {route.name === 'study' && <StudyPage key={`${route.id}-${route.tag ?? ''}`} deckId={route.id} tag={route.tag} />}
+        {route.name === 'study' && (
+          <StudyPage key={`${route.id ?? 'all'}-${route.tag ?? ''}-${route.mode ?? ''}`} deckId={route.id} tag={route.tag} mode={route.mode} />
+        )}
+        {route.name === 'stats' && <StatsPage />}
         {route.name === 'settings' && <SettingsPage />}
       </main>
 
-      <nav className="tabbar">
-        <NavLinks route={route} />
+      <nav className="tabbar" aria-label="Hauptnavigation">
+        <NavLinks route={route} due={count} />
       </nav>
       <Toaster />
     </div>

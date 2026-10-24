@@ -59,7 +59,7 @@ export function ImportDialog({ deckId, onClose }: Props) {
       id = actions.addDeck({
         name: newName.trim() || 'Importierte Karten',
         description: `Importiert aus ${fileName}`,
-        emoji: '📥',
+        icon: 'inbox',
         color: Math.floor(Math.random() * COLOR_COUNT),
         frontLang,
         backLang,
@@ -176,10 +176,10 @@ export function ImportDialog({ deckId, onClose }: Props) {
           <label className="field">
             <span>Importieren in</span>
             <select value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value={NEW}>➕ Neuer Stapel</option>
+              <option value={NEW}>Neuer Stapel</option>
               {decks.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.emoji} {d.name}
+                  {d.name}
                 </option>
               ))}
             </select>

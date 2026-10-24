@@ -1,4 +1,3 @@
-import { Lightbulb, MessageSquareQuote } from 'lucide-react';
 import { useRef, useState, type PointerEvent } from 'react';
 import { SpeakButton } from './SpeakButton';
 
@@ -13,11 +12,12 @@ interface Props {
   example?: CardFace;
   note?: string;
   tag?: string;
-  color: number;
   flipped: boolean;
   onFlip: () => void;
-  /** Called with true (swipe right, known) or false (swipe left, again). Only active once flipped. */
+  /** Called with true (swipe right, "Gut") or false (swipe left, "Nochmal"). Only active once flipped. */
   onSwipe?: (known: boolean) => void;
+  /** Label for a swipe to the right, e.g. "Gut" or "Gewusst". */
+  knownLabel?: string;
   speak: (text: string, lang: string, key: string) => void;
   speakingKey: string | null;
   speechSupported: boolean;
@@ -33,7 +33,7 @@ function sizeClass(text: string) {
 }
 
 export function FlipCard(props: Props) {
-  const { question, answer, example, note, tag, color, flipped, onFlip, onSwipe, speak, speakingKey, speechSupported } = props;
+  const { question, answer, example, note, tag, flipped, onFlip, onSwipe, knownLabel = 'Gut', speak, speakingKey, speechSupported } = props;
   const [dragX, setDragX] = useState(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
 
@@ -65,12 +65,16 @@ export function FlipCard(props: Props) {
     setDragX(0);
   };
 
-  const swipeHint = dragX > 30 ? 'known' : dragX < -30 ? 'again' : '';
+  const pull = Math.min(1, Math.abs(dragX) / SWIPE_THRESHOLD);
+  const swipe = dragX > 0 ? 'known' : dragX < 0 ? 'again' : '';
 
   return (
     <div
-      className={`flip-scene ${swipeHint ? `swipe-${swipeHint}` : ''}`}
-      style={{ transform: dragX ? `translateX(${dragX}px) rotate(${dragX / 18}deg)` : undefined }}
+      className={`flip-scene ${swipe ? `swipe-${swipe}` : ''}`}
+      style={{
+        transform: dragX ? `translateX(${dragX}px) rotate(${dragX / 16}deg)` : undefined,
+        ['--pull' as string]: pull,
+      }}
       data-dragging={dragX !== 0 || undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -87,46 +91,55 @@ export function FlipCard(props: Props) {
       }}
     >
       <div className={`flip-card ${flipped ? 'is-flipped' : ''}`}>
-        <div className={`flip-face flip-face--front grad-${color}`}>
+        <div className="flip-face flip-face--front" aria-hidden={flipped}>
           <div className="flip-face__top">
-            {tag ? <span className="chip chip--glass">{tag}</span> : <span />}
+            {tag ? <span className="chip chip--sm">{tag}</span> : <span />}
             {speechSupported && (
               <SpeakButton active={speakingKey === 'q'} onSpeak={() => speak(question.text, question.lang, 'q')} label="Frage vorlesen" />
             )}
           </div>
-          <p className={`card-text ${sizeClass(question.text)}`}>{question.text}</p>
+          <p className={`card-q ${sizeClass(question.text)}`}>{question.text}</p>
           <span className="flip-face__hint">Tippen zum Umdrehen</span>
         </div>
 
-        <div className="flip-face flip-face--back">
-          <div className="flip-face__top">
-            <span className="flip-face__label">Antwort</span>
+        <div className="flip-face flip-face--back" aria-hidden={!flipped}>
+          <div className="card-ref">
+            <span>{question.text}</span>
             {speechSupported && (
-              <SpeakButton active={speakingKey === 'a'} onSpeak={() => speak(answer.text, answer.lang, 'a')} label="Antwort vorlesen" />
+              <SpeakButton small active={speakingKey === 'q'} onSpeak={() => speak(question.text, question.lang, 'q')} label="Frage vorlesen" />
             )}
           </div>
           <div className="flip-face__content">
-            <p className={`card-text ${sizeClass(answer.text)}`}>{answer.text}</p>
+            <p className="card-meta">{tag ? `Antwort · ${tag}` : 'Antwort'}</p>
+            <div className="card-a-row">
+              <p className={`card-a ${sizeClass(answer.text)}`}>{answer.text}</p>
+              {speechSupported && (
+                <SpeakButton small active={speakingKey === 'a'} onSpeak={() => speak(answer.text, answer.lang, 'a')} label="Antwort vorlesen" />
+              )}
+            </div>
             {example && (
-              <div className="card-extra">
-                <MessageSquareQuote size={16} />
-                <p>{example.text}</p>
+              <div className="card-example">
+                <p>“{example.text}”</p>
                 {speechSupported && (
                   <SpeakButton small active={speakingKey === 'e'} onSpeak={() => speak(example.text, example.lang, 'e')} label="Beispiel vorlesen" />
                 )}
               </div>
             )}
-            {note && (
-              <div className="card-extra card-extra--note">
-                <Lightbulb size={16} />
-                <p>{note}</p>
-              </div>
-            )}
           </div>
+          {note && (
+            <div className="card-note">
+              <span>Merkhilfe</span>
+              <p>{note}</p>
+            </div>
+          )}
         </div>
       </div>
-      <div className="swipe-badge swipe-badge--known">Gewusst</div>
-      <div className="swipe-badge swipe-badge--again">Nochmal</div>
+      <div className="swipe-badge swipe-badge--known" aria-hidden="true">
+        {knownLabel}
+      </div>
+      <div className="swipe-badge swipe-badge--again" aria-hidden="true">
+        Nochmal
+      </div>
     </div>
   );
 }

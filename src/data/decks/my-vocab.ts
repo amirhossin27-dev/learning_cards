@@ -154,7 +154,7 @@ export const myVocabDeck: SeedDeck = {
   id: 'my-vocab',
   name: 'Meine Vokabeln',
   description: 'Deine eigene Liste, bereinigt und um Hinweise ergänzt.',
-  emoji: '📒',
+  icon: 'notebook',
   color: 3,
   frontLang: 'en-US',
   backLang: 'de-DE',
