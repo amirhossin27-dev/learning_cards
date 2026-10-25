@@ -67,7 +67,8 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   const [queue, setQueue] = useState<QueueItem[]>(() => buildQueue(deckId, tag, mode, settings.direction));
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [leaving, setLeaving] = useState<'left' | 'right' | null>(null);
+  // 'swipe': the card already flies out on its own from where the finger let go.
+  const [leaving, setLeaving] = useState<'left' | 'right' | 'swipe' | null>(null);
   const [tally, setTally] = useState({ answers: 0, again: 0 });
   const [feedback, setFeedback] = useState<{ text: string; id: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -131,7 +132,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   }, [menuOpen]);
 
   const rate = useCallback(
-    (rating: Rating) => {
+    (rating: Rating, swiped = false) => {
       if (!current || leaving) return;
       stop();
       const now = Date.now();
@@ -152,7 +153,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
       }
       if (text) setFeedback({ text, id: now });
 
-      setLeaving(rating >= 3 ? 'right' : 'left');
+      setLeaving(swiped ? 'swipe' : rating >= 3 ? 'right' : 'left');
       window.setTimeout(() => {
         setLeaving(null);
         setFlipped(false);
@@ -309,7 +310,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
                 tag={live.tag}
                 flipped={flipped}
                 onFlip={() => setFlipped((f) => !f)}
-                onSwipe={(known) => rate(known ? 3 : 1)}
+                onSwipe={(known) => rate(known ? 3 : 1, true)}
                 knownLabel={extra ? 'Gewusst' : 'Gut'}
                 speak={speak}
                 speakingKey={speakingKey}

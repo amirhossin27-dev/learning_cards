@@ -1858,14 +1858,24 @@ a.deck-tile:hover {
   position: absolute;
   inset: 0;
   cursor: pointer;
+  /* Horizontal moves belong to the card, vertical ones still scroll. */
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
-  transition: transform 0.25s var(--ease);
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+  transition: transform 0.3s var(--ease);
 }
 
 .flip-scene[data-dragging] {
   transition: none;
+}
+
+.flip-scene[data-flying] {
+  pointer-events: none;
+  /* Starts at about the finger's speed and keeps going, rather than pausing on release. */
+  transition: transform 0.26s cubic-bezier(0.25, 0.6, 0.4, 1), opacity 0.26s;
 }
 
 .flip-scene:focus-visible {
@@ -1910,6 +1920,8 @@ a.deck-tile:hover {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   overflow: hidden;
+  /* The back can scroll, which would otherwise let the browser claim a sideways swipe. */
+  touch-action: pan-y;
 }
 
 .flip-face--back {
@@ -2062,16 +2074,16 @@ a.deck-tile:hover {
   color: #17181c;
 }
 
-.swipe-known .swipe-badge--known,
-.swipe-again .swipe-badge--again {
+[data-swipe='known'] .swipe-badge--known,
+[data-swipe='again'] .swipe-badge--again {
   opacity: var(--pull, 1);
 }
 
-.swipe-known .flip-face {
+[data-swipe='known'] .flip-face {
   box-shadow: var(--shadow), 0 0 0 calc(var(--pull, 0) * 3px) var(--r3);
 }
 
-.swipe-again .flip-face {
+[data-swipe='again'] .flip-face {
   box-shadow: var(--shadow), 0 0 0 calc(var(--pull, 0) * 3px) var(--r1);
 }
 
@@ -2843,6 +2855,11 @@ a.deck-tile:hover {
   .study__card.leaving-right,
   .study__card.leaving-left {
     transform: none;
+    transition: opacity 0.15s;
+  }
+
+  .flip-scene[data-flying] {
+    transform: none !important;
     transition: opacity 0.15s;
   }
 
