@@ -9,7 +9,7 @@ Eine moderne Lernkarten-App für iPhone und Desktop: Karte antippen, sie dreht s
 - **Lernmodus** mit Leitner-System: Karten, die du nicht wusstest, kommen in derselben Runde wieder und später öfter dran. Lernrichtung wählbar (Vorderseite, Rückseite, gemischt).
 - **Stapel und Karten** anlegen, bearbeiten, durchsuchen und nach Kategorie filtern. Jede Karte kann einen Beispielsatz und eine Eselsbrücke haben.
 - **CSV-Import/-Export**: Komma oder Semikolon, mit oder ohne Kopfzeile. Einträge, die in beide Richtungen doppelt vorkommen, werden zu einer Karte zusammengefasst.
-- **Mitgelieferte Stapel**: 100 Karten *Corporate Business English*, *Meine Vokabeln*, Hauptstädte, Programmieren und Geschichte.
+- **Mitgelieferte Stapel**: *Corporate Business English* und *Programmieren Basics* (je 20 neue Karten pro Woche), *Meine Vokabeln*, alle Hauptstädte der Welt, *Geschichte kompakt* und jede Woche ein neuer Stapel. Neue Karten kommen auch in schon installierten Stapeln an, der Lernstand bleibt ([src/data/decks/README.md](src/data/decks/README.md)).
 - Hell- und Dunkelmodus, installierbar auf dem Home-Bildschirm.
 
 Alle Daten bleiben lokal im Browser (localStorage).

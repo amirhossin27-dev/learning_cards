@@ -31,32 +31,77 @@ export const defaultSettings: Settings = {
 };
 
 function cardFromSeed(deckId: string, seed: SeedCard, now: number): Card {
-  return { ...seed, id: uid(), deckId, box: 0, createdAt: now };
+  const { added: _a, ...fields } = seed;
+  return { ...fields, id: uid(), deckId, box: 0, createdAt: now };
 }
+
+const cardKey = (front: string) => front.trim().toLowerCase();
 
 function seedDeck(data: AppData, seed: SeedDeck): AppData {
   const now = Date.now();
-  const { cards, ...deck } = seed;
+  const { cards, oldDescriptions: _o, ...deck } = seed;
   return {
     ...data,
     decks: [...data.decks, { ...deck, builtIn: true, createdAt: now }],
     cards: [...data.cards, ...cards.map((c) => cardFromSeed(deck.id, c, now))],
     seeded: [...new Set([...data.seeded, deck.id])],
+    seededCards: { ...data.seededCards, [deck.id]: cards.map((c) => cardKey(c.front)) },
   };
 }
 
-/** Adds built-in decks that have never been seeded (new installs and decks added in later releases). */
-export function withBuiltIns(data: AppData, force = false): AppData {
+/** Copies tags, notes and examples the user's card doesn't have yet. */
+function fillMissing(card: Card, seed: SeedCard | undefined): Card {
+  if (!seed) return card;
+  const next = { ...card };
+  for (const key of ['example', 'note', 'tag'] as const) {
+    if (!next[key] && seed[key]) next[key] = seed[key];
+  }
+  return next;
+}
+
+/**
+ * Brings a built-in deck the user already has up to date: cards added in later
+ * releases arrive once, cards the user deleted or renamed stay gone.
+ */
+function syncDeck(data: AppData, seed: SeedDeck): AppData {
+  const known = data.seededCards[seed.id];
+  // Installs from before this bookkeeping got every card without an `added` date.
+  const offered = new Set(known ?? seed.cards.filter((c) => !c.added).map((c) => cardKey(c.front)));
+  const inDeck = new Set(data.cards.filter((c) => c.deckId === seed.id).map((c) => cardKey(c.front)));
+  const fresh = seed.cards.filter((c) => !offered.has(cardKey(c.front)) && !inDeck.has(cardKey(c.front)));
+
+  let cards = data.cards;
+  if (!known) {
+    // Once per deck: the first-release cards get the tags and notes added since.
+    const bySeed = new Map(seed.cards.map((c) => [cardKey(c.front), c]));
+    cards = cards.map((c) => (c.deckId === seed.id ? fillMissing(c, bySeed.get(cardKey(c.front))) : c));
+  }
+  const now = Date.now();
+  return {
+    ...data,
+    decks: data.decks.map((d) =>
+      d.id === seed.id && seed.oldDescriptions?.includes(d.description) ? { ...d, description: seed.description } : d,
+    ),
+    cards: fresh.length ? [...cards, ...fresh.map((c) => cardFromSeed(seed.id, c, now))] : cards,
+    seededCards: { ...data.seededCards, [seed.id]: [...new Set([...offered, ...seed.cards.map((c) => cardKey(c.front))])] },
+  };
+}
+
+/**
+ * Adds built-in decks that have never been seeded (new installs and decks added
+ * in later releases) and new cards of the built-in decks the user already has.
+ */
+export function withBuiltIns(data: AppData, force = false, seeds: SeedDeck[] = builtInDecks): AppData {
   let next = data;
-  for (const seed of builtInDecks) {
-    const present = next.decks.some((d) => d.id === seed.id);
-    if (!present && (force || !next.seeded.includes(seed.id))) next = seedDeck(next, seed);
+  for (const seed of seeds) {
+    if (next.decks.some((d) => d.id === seed.id)) next = syncDeck(next, seed);
+    else if (force || !next.seeded.includes(seed.id)) next = seedDeck(next, seed);
   }
   return next;
 }
 
 function emptyData(): AppData {
-  return { version: VERSION, decks: [], cards: [], settings: { ...defaultSettings }, seeded: [], history: {} };
+  return { version: VERSION, decks: [], cards: [], settings: { ...defaultSettings }, seeded: [], seededCards: {}, history: {} };
 }
 
 /** Brings stored data from older versions up to date. */
@@ -66,6 +111,7 @@ export function migrate(raw: Partial<AppData>): AppData {
     ...raw,
     settings: { ...defaultSettings, ...raw.settings },
     history: raw.history ?? {},
+    seededCards: raw.seededCards ?? {},
   };
   if ((raw.version ?? 1) < 2) {
     data.cards = data.cards.map((c) => ({ ...c, ...migrateLegacy(c) }));
