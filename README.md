@@ -5,7 +5,7 @@ Eine moderne Lernkarten-App für iPhone und Desktop: Karte antippen, sie dreht s
 ## Funktionen
 
 - **Umdreh-Karten** mit 3D-Animation. Auf dem iPhone nach rechts wischen = gewusst, nach links = nochmal.
-- **Aussprache**: Lautsprecher-Button liest Wörter und Beispielsätze vor (Web Speech API, auf dem iPhone die Siri-Stimmen). US- oder UK-Akzent und Tempo einstellbar.
+- **Aussprache**: Lautsprecher-Button liest Wörter und Beispielsätze vor. Die englischen Texte der mitgelieferten Stapel sind als Aufnahmen dabei, die auch im Stummmodus des iPhones zu hören sind. Alles andere spricht die Web Speech API (auf dem iPhone die Siri-Stimmen, im Stummmodus still). US- oder UK-Akzent und Tempo einstellbar.
 - **Lernmodus** mit Leitner-System: Karten, die du nicht wusstest, kommen in derselben Runde wieder und später öfter dran. Lernrichtung wählbar (Vorderseite, Rückseite, gemischt).
 - **Stapel und Karten** anlegen, bearbeiten, durchsuchen und nach Kategorie filtern. Jede Karte kann einen Beispielsatz und eine Eselsbrücke haben.
 - **CSV-Import/-Export**: Komma oder Semikolon, mit oder ohne Kopfzeile. Einträge, die in beide Richtungen doppelt vorkommen, werden zu einer Karte zusammengefasst.
@@ -33,6 +33,8 @@ npm run build   # Produktions-Build nach dist/
 ```
 
 App-Icons neu erzeugen (braucht Playwright): `node scripts/render-icons.mjs`
+
+Aufnahmen nach Änderungen an den mitgelieferten Stapeln ergänzen: siehe [scripts/audio/README.md](scripts/audio/README.md).
 
 ## Veröffentlichung
 
