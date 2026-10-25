@@ -104,7 +104,7 @@ export function SettingsPage() {
         </label>
         <p className="form__hint">
           Tipp fürs iPhone: Unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen kannst du „Erweiterte“ Stimmen laden. Die
-          klingen deutlich natürlicher. Hörst du gar nichts, prüfe die Lautstärke und den Stumm-Schalter.
+          klingen deutlich natürlicher. Im Stummmodus bleibt die Aussprache am iPhone still, das lässt Safari nicht anders zu. Schalte ihn zum Lernen aus.
         </p>
       </section>
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from '../components/Toast';
 import type { Lang, Settings } from '../types';
 
 /**
@@ -13,52 +14,29 @@ export const isAppleTouch =
   typeof navigator !== 'undefined' &&
   (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-let silence: HTMLAudioElement | null = null;
 // True while the unlock utterance below is queued, so a real one can simply follow it.
 let unlocking = false;
 
-/** 0.1 s of silence as a WAV file, so no audio asset has to ship with the app. */
-function silentWav(): string {
-  const samples = 800;
-  const view = new DataView(new ArrayBuffer(44 + samples));
-  const text = (offset: number, value: string) => [...value].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
-  text(0, 'RIFF');
-  view.setUint32(4, 36 + samples, true);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  view.setUint32(16, 16, true); // format chunk size
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // mono
-  view.setUint32(24, 8000, true); // sample rate
-  view.setUint32(28, 8000, true); // bytes per second
-  view.setUint16(32, 1, true); // block align
-  view.setUint16(34, 8, true); // bits per sample
-  text(36, 'data');
-  view.setUint32(40, samples, true);
-  for (let i = 0; i < samples; i++) view.setUint8(44 + i, 128);
-  return URL.createObjectURL(new Blob([view.buffer], { type: 'audio/wav' }));
-}
+const MUTE_HINT_KEY = 'karteikarten:stummHinweis';
+const MUTE_HINT_TIMES = 3;
 
 /**
- * Safari on iPhone plays speech on the "ambient" audio channel, which the
- * silent switch mutes. Asking for the media channel, and playing a silent clip
- * to make Safari switch to it, lets speech be heard like a video would.
+ * Safari on iPhone speaks through the ringer channel, so the silent switch
+ * mutes it, and a web page can't change that or find out whether it is on.
+ * The first few times, say so once per app start.
  */
-function primeAudio() {
-  if (!isAppleTouch) return;
-  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-  if (session) {
-    try {
-      session.type = 'playback';
-    } catch {
-      // Older Safari: the silent clip below does the job.
-    }
+let muteHintShown = false;
+function muteHint() {
+  if (!isAppleTouch || muteHintShown) return;
+  muteHintShown = true;
+  try {
+    const seen = Number(localStorage.getItem(MUTE_HINT_KEY) ?? 0);
+    if (seen >= MUTE_HINT_TIMES) return;
+    localStorage.setItem(MUTE_HINT_KEY, String(seen + 1));
+  } catch {
+    // Without storage the hint simply shows once per app start.
   }
-  if (!silence) {
-    silence = new Audio(silentWav());
-    silence.setAttribute('playsinline', '');
-  }
-  silence.play().catch(() => {});
+  toast('Kein Ton? Im Stummmodus bleibt die Aussprache am iPhone still.', 'info');
 }
 
 /**
@@ -70,7 +48,6 @@ export function installSpeechUnlock() {
   const unlock = () => {
     window.removeEventListener('touchend', unlock, true);
     window.removeEventListener('click', unlock, true);
-    primeAudio();
     if (!speechSynthesis.speaking) {
       const empty = new SpeechSynthesisUtterance(' ');
       empty.volume = 0;
@@ -166,7 +143,7 @@ export function useSpeech(rate: number) {
     (text: string, lang: string, key = text) => {
       if (!speechSupported) return;
       const synth = window.speechSynthesis;
-      primeAudio();
+      muteHint();
       const utterance = new SpeechSynthesisUtterance(speakableText(text));
       utterance.lang = lang;
       utterance.rate = rate;
