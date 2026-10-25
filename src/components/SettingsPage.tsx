@@ -1,7 +1,7 @@
 import { Download, Monitor, Moon, RefreshCcw, Sun, Volume2 } from 'lucide-react';
 import { exportCsv } from '../lib/csv';
 import { downloadText } from '../lib/download';
-import { isAppleTouch, useSpeech } from '../lib/speech';
+import { isAppleTouch, SAMPLE_SENTENCE, useSpeech } from '../lib/speech';
 import { actions, useAppData } from '../lib/store';
 import type { Settings } from '../types';
 import { toast } from './Toast';
@@ -88,7 +88,7 @@ export function SettingsPage() {
             />
             <button
               className="btn btn--ghost btn--sm"
-              onClick={() => speak('Could you elaborate on that? I look forward to hearing from you.', settings.englishAccent)}
+              onClick={() => speak(SAMPLE_SENTENCE, settings.englishAccent)}
               disabled={!supported}
             >
               <Volume2 size={16} /> Test
@@ -104,7 +104,7 @@ export function SettingsPage() {
         </label>
         <p className="form__hint">
           Tipp fürs iPhone: Unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen kannst du „Erweiterte“ Stimmen laden. Die
-          klingen deutlich natürlicher. Hörst du gar nichts, prüfe die Lautstärke und den Stumm-Schalter.
+          klingen deutlich natürlicher. Die englischen Wörter und Sätze der mitgelieferten Stapel sind als Aufnahmen dabei und klingen auch im Stummmodus. Alles andere liest die Siri-Stimme, und die bleibt im Stummmodus still.
         </p>
       </section>
 

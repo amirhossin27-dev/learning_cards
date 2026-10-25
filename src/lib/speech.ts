@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from '../components/Toast';
+import { clipUrl } from './clips';
 import type { Lang, Settings } from '../types';
 
 /**
- * Text-to-speech via the browser's Web Speech API. On iPhone this uses the
- * system (Siri) voices, so it works offline and costs nothing.
+ * Pronunciation: recordings where the built-in decks have them (see clips.ts),
+ * otherwise the browser's Web Speech API, which on iPhone uses the system
+ * (Siri) voices offline and for free.
  */
+
+/** Played by the test button in the settings; also recorded, see clips.ts. */
+export const SAMPLE_SENTENCE = 'Could you elaborate on that? I look forward to hearing from you.';
 
 export const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -13,65 +19,74 @@ export const isAppleTouch =
   typeof navigator !== 'undefined' &&
   (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-let silence: HTMLAudioElement | null = null;
 // True while the unlock utterance below is queued, so a real one can simply follow it.
 let unlocking = false;
 
-/** 0.1 s of silence as a WAV file, so no audio asset has to ship with the app. */
-function silentWav(): string {
-  const samples = 800;
-  const view = new DataView(new ArrayBuffer(44 + samples));
-  const text = (offset: number, value: string) => [...value].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
-  text(0, 'RIFF');
-  view.setUint32(4, 36 + samples, true);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  view.setUint32(16, 16, true); // format chunk size
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // mono
-  view.setUint32(24, 8000, true); // sample rate
-  view.setUint32(28, 8000, true); // bytes per second
-  view.setUint16(32, 1, true); // block align
-  view.setUint16(34, 8, true); // bits per sample
-  text(36, 'data');
-  view.setUint32(40, samples, true);
-  for (let i = 0; i < samples; i++) view.setUint8(44 + i, 128);
-  return URL.createObjectURL(new Blob([view.buffer], { type: 'audio/wav' }));
+// One shared element plays the recordings, so a tap on it once allows later automatic playback too.
+let audio: HTMLAudioElement | null = null;
+// Counts playbacks, so the end of an interrupted one doesn't reset the newer one's button.
+let playback = 0;
+// True while the muted unlock below is starting, so it doesn't pause a recording started right after.
+let unlockingAudio = false;
+
+const SILENCE =
+  'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+
+function player(): HTMLAudioElement {
+  if (!audio) {
+    audio = new Audio();
+    audio.preload = 'auto';
+  }
+  return audio;
 }
 
+const MUTE_HINT_KEY = 'karteikarten:stummHinweis';
+const MUTE_HINT_TIMES = 3;
+
 /**
- * Safari on iPhone plays speech on the "ambient" audio channel, which the
- * silent switch mutes. Asking for the media channel, and playing a silent clip
- * to make Safari switch to it, lets speech be heard like a video would.
+ * Safari on iPhone speaks through the ringer channel, so the silent switch
+ * mutes it, and a web page can't change that or find out whether it is on.
+ * Recordings aren't affected. For everything else, the first few times, say
+ * so once per app start.
  */
-function primeAudio() {
-  if (!isAppleTouch) return;
-  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-  if (session) {
-    try {
-      session.type = 'playback';
-    } catch {
-      // Older Safari: the silent clip below does the job.
-    }
+let muteHintShown = false;
+function muteHint() {
+  if (!isAppleTouch || muteHintShown) return;
+  muteHintShown = true;
+  try {
+    const seen = Number(localStorage.getItem(MUTE_HINT_KEY) ?? 0);
+    if (seen >= MUTE_HINT_TIMES) return;
+    localStorage.setItem(MUTE_HINT_KEY, String(seen + 1));
+  } catch {
+    // Without storage the hint simply shows once per app start.
   }
-  if (!silence) {
-    silence = new Audio(silentWav());
-    silence.setAttribute('playsinline', '');
-  }
-  silence.play().catch(() => {});
+  toast('Kein Ton? Die Siri-Stimme bleibt im Stummmodus still.', 'info');
 }
 
 /**
- * iPhone only allows speech that starts from a tap. Speaking nothing on the
- * first tap anywhere unlocks it, so automatic reading works afterwards too.
+ * iPhone only allows speech and sound that start from a tap. Speaking nothing
+ * and playing muted silence on the first tap anywhere unlocks both, so
+ * automatic reading works afterwards too.
  */
 export function installSpeechUnlock() {
-  if (!speechSupported || !isAppleTouch) return;
+  if (!isAppleTouch) return;
   const unlock = () => {
     window.removeEventListener('touchend', unlock, true);
     window.removeEventListener('click', unlock, true);
-    primeAudio();
-    if (!speechSynthesis.speaking) {
+    const el = player();
+    if (el.paused) {
+      unlockingAudio = true;
+      el.muted = true;
+      el.src = SILENCE;
+      el.play()
+        .then(() => unlockingAudio && el.pause())
+        .catch(() => {})
+        .finally(() => {
+          unlockingAudio = false;
+          el.muted = false;
+        });
+    }
+    if (speechSupported && !speechSynthesis.speaking) {
       const empty = new SpeechSynthesisUtterance(' ');
       empty.volume = 0;
       empty.onend = empty.onerror = () => (unlocking = false);
@@ -87,6 +102,16 @@ export function installSpeechUnlock() {
 
 // Held so the playing utterance isn't garbage collected, which would drop its end event.
 let currentUtterance: SpeechSynthesisUtterance | null = null;
+
+/** Stops whatever is playing, recording or voice. */
+function silenceAll() {
+  playback++;
+  if (audio && !audio.paused && !unlockingAudio) audio.pause();
+  if (speechSupported) {
+    currentUtterance = null;
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  }
+}
 
 // Higher-quality voices ship under these names on Apple, Google and Microsoft platforms.
 const PREFERRED = ['premium', 'enhanced', 'natural', 'neural', 'siri', 'google', 'samantha', 'daniel', 'ava', 'anna', 'karen'];
@@ -148,26 +173,22 @@ export function useSpeech(rate: number) {
   const voices = useVoices();
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
 
-  useEffect(() => () => {
-    if (!speechSupported) return;
-    currentUtterance = null;
-    speechSynthesis.cancel();
-  }, []);
+  useEffect(() => silenceAll, []);
 
   const stop = useCallback(() => {
-    if (!speechSupported) return;
-    currentUtterance = null;
-    speechSynthesis.cancel();
+    silenceAll();
     setSpeakingKey(null);
   }, []);
 
-  /** `key` identifies the button that triggered playback, so only that one animates. */
-  const speak = useCallback(
-    (text: string, lang: string, key = text) => {
-      if (!speechSupported) return;
+  const speakWithVoice = useCallback(
+    (text: string, lang: string, key: string) => {
+      if (!speechSupported) {
+        setSpeakingKey((k) => (k === key ? null : k));
+        return;
+      }
       const synth = window.speechSynthesis;
-      primeAudio();
-      const utterance = new SpeechSynthesisUtterance(speakableText(text));
+      muteHint();
+      const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
       utterance.rate = rate;
       // iPhone lists voices that aren't downloaded and then stays silent. The
@@ -196,5 +217,32 @@ export function useSpeech(rate: number) {
     [rate, voices],
   );
 
-  return { speak, stop, speakingKey, supported: speechSupported, voices };
+  /** `key` identifies the button that triggered playback, so only that one animates. */
+  const speak = useCallback(
+    (text: string, lang: string, key = text) => {
+      const spoken = speakableText(text);
+      const url = clipUrl(lang, spoken);
+      if (!url) {
+        playback++;
+        if (audio && !audio.paused) audio.pause();
+        speakWithVoice(spoken, lang, key);
+        return;
+      }
+      silenceAll();
+      const el = player();
+      const id = playback;
+      unlockingAudio = false;
+      el.muted = false;
+      el.src = url;
+      el.defaultPlaybackRate = rate;
+      el.playbackRate = rate;
+      el.onended = () => id === playback && setSpeakingKey((k) => (k === key ? null : k));
+      setSpeakingKey(key);
+      // Not allowed without a tap yet, or offline before this recording was cached: use the browser's voice.
+      el.play().catch(() => id === playback && speakWithVoice(spoken, lang, key));
+    },
+    [rate, speakWithVoice],
+  );
+
+  return { speak, stop, speakingKey, supported: speechSupported || typeof Audio !== 'undefined', voices };
 }
