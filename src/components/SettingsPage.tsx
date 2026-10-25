@@ -1,7 +1,7 @@
 import { Download, Monitor, Moon, RefreshCcw, Sun, Volume2 } from 'lucide-react';
 import { exportCsv } from '../lib/csv';
 import { downloadText } from '../lib/download';
-import { useSpeech } from '../lib/speech';
+import { isAppleTouch, useSpeech } from '../lib/speech';
 import { actions, useAppData } from '../lib/store';
 import type { Settings } from '../types';
 import { toast } from './Toast';
@@ -54,7 +54,13 @@ export function SettingsPage() {
         <div className="setting">
           <div className="setting__label">
             <strong>Englischer Akzent</strong>
-            <span>{englishVoices > 0 ? `${englishVoices} passende Stimmen auf diesem Gerät` : 'Stimmen werden geladen …'}</span>
+            <span>
+              {isAppleTouch
+                ? 'Mit der Stimme aus den iPhone-Einstellungen'
+                : englishVoices > 0
+                  ? `${englishVoices} passende Stimmen auf diesem Gerät`
+                  : 'Stimmen werden geladen …'}
+            </span>
           </div>
           <div className="segmented" role="group" aria-label="Akzent">
             <button className={settings.englishAccent === 'en-US' ? 'is-active' : ''} onClick={() => set({ englishAccent: 'en-US' })}>
@@ -98,7 +104,7 @@ export function SettingsPage() {
         </label>
         <p className="form__hint">
           Tipp fürs iPhone: Unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen kannst du „Erweiterte“ Stimmen laden. Die
-          klingen deutlich natürlicher.
+          klingen deutlich natürlicher. Hörst du gar nichts, prüfe die Lautstärke und den Stumm-Schalter.
         </p>
       </section>
 
