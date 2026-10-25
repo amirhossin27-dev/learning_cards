@@ -72,6 +72,11 @@ export interface AppData {
   settings: Settings;
   /** Built-in deck ids that have been seeded at least once (so deleting one sticks). */
   seeded: string[];
+  /**
+   * Fronts (lower case) of the built-in cards each built-in deck has received,
+   * so cards added in later releases arrive once and deleted ones stay deleted.
+   */
+  seededCards: Record<string, string[]>;
   /** Study log keyed by local date (YYYY-MM-DD). */
   history: Record<string, DayLog>;
 }

@@ -1,6 +1,5 @@
-import type { SeedCard, SeedDeck } from '../seed';
-
-const group = (tag: string, cards: Omit<SeedCard, 'tag'>[]): SeedCard[] => cards.map((c) => ({ ...c, tag }));
+import type { SeedDeck } from '../seed';
+import { added, group } from './util';
 
 const meetings = group('Meetings', [
   { front: 'to kick off', back: '(ein Meeting / Projekt) starten', example: "Let's kick off the meeting with a quick round of introductions.", note: 'kick-off meeting = Auftaktmeeting' },
@@ -120,13 +119,50 @@ const falseFriends = group('False Friends', [
   { front: 'fabric', back: 'Stoff, Gewebe', example: 'The fabric of these chairs is very durable.', note: 'Fabrik = factory' },
 ]);
 
+// --- Added after the first release, 20 cards per week -------------------------
+
+const presentations = group('Präsentationen', [
+  { front: 'to give a presentation', back: 'eine Präsentation halten', example: "I'm giving a presentation to the board on Monday.", note: 'Nicht „hold a presentation“ – ein typischer Fehler von Deutschsprachigen.' },
+  { front: 'to outline', back: 'umreißen, skizzieren', example: "First, I'll outline the main challenges." },
+  { front: 'As you can see on this slide, …', back: 'Wie Sie auf dieser Folie sehen, …', example: 'As you can see on this slide, sales doubled in the second quarter.', note: 'Folie = slide, nicht „foil“ (das ist Alufolie).' },
+  { front: 'to highlight', back: 'hervorheben', example: "I'd like to highlight three key figures." },
+  { front: 'to move on to', back: 'zu etwas übergehen', example: "Let's move on to the next point." },
+  { front: 'to back up a claim', back: 'eine Behauptung belegen', example: 'Can you back up that claim with data?' },
+  { front: 'key takeaway', back: 'wichtigste Erkenntnis, Kernaussage', example: 'The key takeaway is that we need to act now.' },
+  { front: 'to sum up', back: 'zusammenfassen', example: 'To sum up, the pilot was a success.', note: 'Auch: to summarize, in a nutshell.' },
+  { front: 'to take questions', back: 'Fragen beantworten', example: "I'll take questions at the end of the presentation." },
+  { front: 'handout', back: 'Handout, Tischvorlage', example: "I'll send you the handout after the session." },
+]);
+
+const networking = group('Small Talk & Networking', [
+  { front: 'Nice to meet you.', back: 'Freut mich, Sie kennenzulernen.', example: "Hi, I'm Amir. – Nice to meet you, I'm Sarah.", note: 'Beim Abschied: „Nice meeting you.“' },
+  { front: 'What do you do?', back: 'Was machen Sie beruflich?', example: 'So, what do you do? – I work in IT security.', note: 'Klingt natürlicher als „What is your job?“' },
+  { front: 'I work for …', back: 'Ich arbeite bei … (Firma)', example: 'I work for a software company in Frankfurt.', note: 'work for + Firma, work in + Abteilung oder Branche, work as + Beruf.' },
+  { front: 'to introduce someone to someone', back: 'jemanden jemandem vorstellen', example: 'Let me introduce you to our CFO, Lisa.', note: 'Personen stellt man mit introduce vor, nicht mit „present“.' },
+  { front: 'to break the ice', back: 'das Eis brechen', example: 'A short story about the trip helped to break the ice.' },
+  { front: 'to network', back: 'Kontakte knüpfen', example: 'The trade fair is a great place to network.' },
+  { front: 'business card', back: 'Visitenkarte', example: "Here's my business card – feel free to call me.", note: 'Nicht „visit card“.' },
+  { front: 'to catch up', back: 'sich (wieder) austauschen, Neuigkeiten erzählen', example: "Let's grab a coffee and catch up next week." },
+  { front: 'to keep in touch', back: 'in Kontakt bleiben', example: "It was great talking to you – let's keep in touch." },
+  { front: 'referral', back: 'Empfehlung (z. B. für eine Stelle oder einen Kunden)', example: 'I got the job through a referral from a former colleague.' },
+]);
+
 export const businessEnglishDeck: SeedDeck = {
   id: 'business-english',
   name: 'Corporate Business English',
-  description: '100 Karten: Meetings, E-Mails, Projekte, Verhandlungen, Grammatik-Eselsbrücken und False Friends.',
+  description: 'Meetings, E-Mails, Grammatik, False Friends – jede Woche 20 neue Karten.',
+  oldDescriptions: ['100 Karten: Meetings, E-Mails, Projekte, Verhandlungen, Grammatik-Eselsbrücken und False Friends.'],
   icon: 'briefcase',
   color: 0,
   frontLang: 'en-US',
   backLang: 'de-DE',
-  cards: [...meetings, ...communication, ...projects, ...finance, ...grammar, ...falseFriends],
+  cards: [
+    ...meetings,
+    ...communication,
+    ...projects,
+    ...finance,
+    ...grammar,
+    ...falseFriends,
+    ...added('2026-10-25', [...presentations, ...networking]),
+  ],
 };
