@@ -29,8 +29,8 @@ Prüfen vor dem Pull Request:
 ### Themen für den Stapel der Woche
 
 - [x] Denkfehler & Psychologie (2026-10-25)
+- [x] Weltraum & Astronomie (2026-10-31)
 - [ ] Redewendungen und ihre Herkunft
-- [ ] Weltraum & Astronomie
 - [ ] Geld & Finanzen (Zinseszins, ETF, Inflation)
 - [ ] Krypto & Blockchain
 - [ ] Künstliche Intelligenz: Grundbegriffe
@@ -56,8 +56,8 @@ Prüfen vor dem Pull Request:
 
 ### Themen für Business English
 
-Telefonate, Bewerbung & HR, Verträge, Kundenservice & Beschwerden, Marketing & Vertrieb, Zahlen und Berichte, Phrasal Verbs, Idioms, Geschäftsreise, Feedback geben, Remote Work, IT-Projekte, weitere Grammatik-Eselsbrücken, weitere False Friends.
+Verträge, Kundenservice & Beschwerden, Marketing & Vertrieb, Zahlen und Berichte, Phrasal Verbs, Idioms, Geschäftsreise, Feedback geben, Remote Work, IT-Projekte, weitere Grammatik-Eselsbrücken, weitere False Friends.
 
 ### Themen für Programmieren Basics
 
-Python-Grundlagen, JavaScript-Grundlagen, Linux-Befehle, Git im Alltag, Datenstrukturen (Stack, Queue, Hash-Map, Baum), Sortieren und Suchen, Testen, Clean Code und SOLID, Cloud & DevOps, Netzwerke, Datenformate (YAML, CSV, XML), reguläre Ausdrücke, Web-Sicherheit (OWASP), Anmeldung & Tokens (OAuth, JWT).
+JavaScript-Grundlagen, mehr Python, Git im Alltag, Sortieren und Suchen, Testen, Clean Code und SOLID, Cloud & DevOps, Netzwerke, Datenformate (YAML, CSV, XML), reguläre Ausdrücke, Web-Sicherheit (OWASP), Anmeldung & Tokens (OAuth, JWT).

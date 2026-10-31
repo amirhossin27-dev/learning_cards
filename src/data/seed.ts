@@ -5,6 +5,7 @@ import { geographyDeck } from './decks/geography';
 import { historyDeck } from './decks/history';
 import { myVocabDeck } from './decks/my-vocab';
 import { programmingDeck } from './decks/programming';
+import { spaceDeck } from './decks/space';
 
 export interface SeedCard {
   front: string;
@@ -30,4 +31,5 @@ export const builtInDecks: SeedDeck[] = [
   historyDeck,
   // Decks of the week, oldest first (see decks/README.md).
   biasesDeck,
+  spaceDeck,
 ];

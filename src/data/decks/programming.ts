@@ -7,6 +7,9 @@ const DATA = 'Daten';
 const WEB = 'Web & Netzwerk';
 const TOOLS = 'Werkzeuge & Abläufe';
 const SECURITY = 'Sicherheit';
+const SHELL = 'Kommandozeile';
+const STRUCTURES = 'Datenstrukturen';
+const PYTHON = 'Python';
 
 // The first release.
 const classics = [
@@ -86,6 +89,35 @@ const security = group(SECURITY, [
   { front: 'Was ist Cross-Site-Scripting (XSS)?', back: 'Angreifer schleusen eigenes JavaScript in eine Webseite ein, das dann im Browser anderer Nutzer läuft.', note: 'Schutz: Eingaben bei der Ausgabe immer maskieren (escapen).' },
 ]);
 
+const shell = group(SHELL, [
+  { front: 'Was macht ls?', back: 'Listet Dateien und Ordner im aktuellen Verzeichnis auf.', note: 'ls -la zeigt auch versteckte Dateien und Details wie Rechte und Größe.' },
+  { front: 'Was macht cd?', back: 'Wechselt das Verzeichnis (change directory).', note: 'cd .. = eine Ebene höher, cd ~ = ins Home-Verzeichnis.' },
+  { front: 'Was macht pwd?', back: 'Zeigt den Pfad des Verzeichnisses, in dem man gerade ist (print working directory).' },
+  { front: 'Was macht sudo?', back: 'Führt einen Befehl mit Administratorrechten (als root) aus.', note: 'Kurz für „superuser do“. Vorsicht damit!' },
+  { front: 'Was macht grep?', back: 'Durchsucht Text oder Dateien nach einem Muster und zeigt die passenden Zeilen.', note: 'grep "Fehler" log.txt zeigt alle Zeilen mit „Fehler“.' },
+  { front: 'Was bedeutet chmod 755?', back: 'Der Besitzer darf lesen, schreiben und ausführen (7), Gruppe und alle anderen dürfen lesen und ausführen (5).', note: 'r = 4, w = 2, x = 1 – die Summe ergibt die Ziffer.' },
+  { front: 'Was macht die Pipe | in der Kommandozeile?', back: 'Sie gibt die Ausgabe eines Befehls als Eingabe an den nächsten weiter.', note: 'Beispiel: ps aux | grep node' },
+  { front: 'Absoluter vs. relativer Pfad', back: 'Absolut: vollständig ab dem Wurzelverzeichnis, z. B. /home/anna/notizen.txt. Relativ: vom aktuellen Ordner aus, z. B. notizen.txt oder ../bilder.' },
+]);
+
+const structures = group(STRUCTURES, [
+  { front: 'Was ist ein Stack?', back: 'Ein Stapel nach dem Prinzip LIFO: Was zuletzt hineinkommt, kommt zuerst heraus.', note: 'Wie ein Tellerstapel. Die Operationen heißen push und pop.' },
+  { front: 'Was ist eine Queue?', back: 'Eine Warteschlange nach dem Prinzip FIFO: Was zuerst hineinkommt, kommt zuerst heraus.', note: 'Wie die Schlange an der Supermarktkasse.' },
+  { front: 'Was ist eine Hash-Map?', back: 'Sie speichert Schlüssel-Wert-Paare und findet einen Wert über seinen Schlüssel im Schnitt in konstanter Zeit, O(1).', note: 'In Python heißt sie dict, in Java HashMap, in JavaScript Map.' },
+  { front: 'Was ist eine verkettete Liste?', back: 'Eine Folge von Knoten, in der jeder Knoten auf den nächsten zeigt.', note: 'Einfügen geht schnell, aber für das n-te Element muss man die Liste von vorne durchlaufen.' },
+  { front: 'Was ist ein Baum (Datenstruktur)?', back: 'Eine hierarchische Struktur aus Knoten mit genau einer Wurzel; jeder Knoten kann Kindknoten haben.', note: 'Beispiele: Ordnerstruktur, HTML-Dokument (DOM).' },
+  { front: 'Was ist ein Graph?', back: 'Knoten, die über Kanten verbunden sind – beliebig vernetzt, auch im Kreis.', note: 'Beispiele: Straßennetz, soziale Netzwerke.' },
+]);
+
+const python = group(PYTHON, [
+  { front: 'Wie gibt man in Python etwas aus?', back: 'Mit print(), z. B. print("Hallo Welt")' },
+  { front: 'Welche Rolle spielt die Einrückung in Python?', back: 'Sie gehört zur Syntax: Eingerückte Zeilen bilden einen Block, z. B. den Rumpf einer Schleife.', note: 'Üblich sind 4 Leerzeichen (Stilregel PEP 8).' },
+  { front: 'Liste vs. Tupel in Python', back: 'Eine Liste [1, 2, 3] lässt sich ändern, ein Tupel (1, 2, 3) nicht.' },
+  { front: 'Was liefert range(5) in Python?', back: 'Die Zahlen 0, 1, 2, 3, 4 – die obere Grenze ist nicht enthalten.' },
+  { front: 'Was ist eine List Comprehension?', back: 'Eine Kurzform, um Listen zu erzeugen: [x * 2 for x in zahlen]' },
+  { front: 'Was bedeutet None in Python?', back: 'Der Wert für „kein Wert“, vergleichbar mit null in anderen Sprachen.' },
+]);
+
 export const programmingDeck: SeedDeck = {
   id: 'programming',
   name: 'Programmieren Basics',
@@ -95,5 +127,9 @@ export const programmingDeck: SeedDeck = {
   color: 2,
   frontLang: 'de-DE',
   backLang: 'de-DE',
-  cards: [...classics, ...added('2026-10-25', [...basics, ...concepts, ...data, ...web, ...tools, ...security])],
+  cards: [
+    ...classics,
+    ...added('2026-10-25', [...basics, ...concepts, ...data, ...web, ...tools, ...security]),
+    ...added('2026-10-31', [...shell, ...structures, ...python]),
+  ],
 };

@@ -147,6 +147,32 @@ const networking = group('Small Talk & Networking', [
   { front: 'referral', back: 'Empfehlung (z. B. für eine Stelle oder einen Kunden)', example: 'I got the job through a referral from a former colleague.' },
 ]);
 
+const phone = group('Telefonieren', [
+  { front: 'to put someone through', back: 'jemanden durchstellen', example: 'Could you put me through to the sales department, please?' },
+  { front: 'to hold the line', back: 'am Apparat bleiben, dranbleiben', example: "Please hold the line – I'll check if she's available.", note: 'Kürzer: „Hold on, please.“' },
+  { front: 'to leave a message', back: 'eine Nachricht hinterlassen', example: "She's in a meeting. Would you like to leave a message?" },
+  { front: 'to call someone back', back: 'jemanden zurückrufen', example: 'Can I call you back in ten minutes?' },
+  { front: 'This is … speaking.', back: 'Hier spricht …', example: 'Hello, this is Anna Schmidt from Bosch speaking.', note: 'Am Telefon nicht „I am …“, sondern „This is …“.' },
+  { front: 'Speaking.', back: 'Am Apparat. (Ich bin es selbst.)', example: 'Could I speak to Mr Weber, please? – Speaking.' },
+  { front: 'Could you spell that, please?', back: 'Könnten Sie das bitte buchstabieren?', example: 'Could you spell your last name, please?' },
+  { front: "I didn't catch that.", back: 'Das habe ich (akustisch) nicht verstanden.', example: "Sorry, I didn't catch your name." },
+  { front: 'to hang up', back: 'auflegen', example: "Please don't hang up, I'll transfer you now.", note: 'Nicht verwechseln: to hang on = dranbleiben.' },
+  { front: 'voicemail', back: 'Mailbox, Sprachnachricht', example: 'I left you a voicemail this morning.', note: 'Ein „mailbox“ ist im amerikanischen Englisch ein Briefkasten.' },
+]);
+
+const hiring = group('Bewerbung & HR', [
+  { front: 'job interview', back: 'Vorstellungsgespräch', example: 'I have a job interview at a bank on Thursday.' },
+  { front: 'CV (curriculum vitae)', back: 'Lebenslauf', example: 'Please send us your CV and a cover letter.', note: 'In den USA sagt man meist „résumé“.' },
+  { front: 'cover letter', back: 'Anschreiben (einer Bewerbung)', example: 'Your cover letter should be no longer than one page.' },
+  { front: 'vacancy', back: 'offene Stelle', example: 'We have a vacancy in our IT department.', note: 'Auch: job opening, open position.' },
+  { front: 'notice period', back: 'Kündigungsfrist', example: 'My notice period is three months.' },
+  { front: "to hand in one's notice", back: 'kündigen (als Arbeitnehmer)', example: 'She handed in her notice last Friday.', note: 'Gekündigt werden: to be fired (wegen Fehlverhaltens) oder to be laid off (betriebsbedingt).' },
+  { front: 'salary expectations', back: 'Gehaltsvorstellungen', example: 'What are your salary expectations?' },
+  { front: 'probation period', back: 'Probezeit', example: 'The probation period is six months.', note: 'Auch: probationary period.' },
+  { front: 'strengths and weaknesses', back: 'Stärken und Schwächen', example: 'What would you say are your greatest strengths and weaknesses?' },
+  { front: 'perks', back: 'Extras, Zusatzleistungen (z. B. Firmenwagen)', example: 'The job comes with great perks, like flexible hours and a company car.', note: 'Förmlicher: fringe benefits.' },
+]);
+
 export const businessEnglishDeck: SeedDeck = {
   id: 'business-english',
   name: 'Corporate Business English',
@@ -164,5 +190,6 @@ export const businessEnglishDeck: SeedDeck = {
     ...grammar,
     ...falseFriends,
     ...added('2026-10-25', [...presentations, ...networking]),
+    ...added('2026-10-31', [...phone, ...hiring]),
   ],
 };
