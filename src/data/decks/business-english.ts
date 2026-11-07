@@ -173,6 +173,32 @@ const hiring = group('Bewerbung & HR', [
   { front: 'perks', back: 'Extras, Zusatzleistungen (z. B. Firmenwagen)', example: 'The job comes with great perks, like flexible hours and a company car.', note: 'Förmlicher: fringe benefits.' },
 ]);
 
+const service = group('Kundenservice & Beschwerden', [
+  { front: 'to file a complaint', back: 'eine Beschwerde einreichen', example: 'The customer filed a complaint about the late delivery.', note: 'Auch: to make a complaint.' },
+  { front: 'We apologize for the inconvenience.', back: 'Wir bitten die Unannehmlichkeiten zu entschuldigen.', example: 'Your order has been delayed. We apologize for the inconvenience.' },
+  { front: 'refund', back: 'Rückerstattung', example: 'If you are not satisfied, you will get a full refund.', note: 'Als Verb: to refund something = etwas zurückerstatten.' },
+  { front: 'to look into something', back: 'einer Sache nachgehen, etwas prüfen', example: "Thanks for letting us know – we'll look into it right away." },
+  { front: 'to sort something out', back: 'etwas klären, in Ordnung bringen', example: "Don't worry, we'll sort out the problem with your invoice today." },
+  { front: 'faulty', back: 'fehlerhaft, defekt', example: 'The printer we received was faulty, so we sent it back.' },
+  { front: 'replacement', back: 'Ersatz (z. B. ein Ersatzgerät)', example: "We'll send you a replacement free of charge." },
+  { front: 'to be entitled to something', back: 'Anspruch auf etwas haben', example: 'You are entitled to a refund within 14 days.', note: 'Ähnlich: to be eligible for something.' },
+  { front: 'customer satisfaction', back: 'Kundenzufriedenheit', example: 'Customer satisfaction has improved since we extended our support hours.' },
+  { front: 'to compensate someone for something', back: 'jemanden für etwas entschädigen', example: 'We will compensate you for the delay with a 10 % discount.' },
+]);
+
+const travel = group('Geschäftsreise', [
+  { front: 'business trip', back: 'Geschäftsreise, Dienstreise', example: "I'm on a business trip to London next week.", note: 'Allgemein heißt es „business travel“ (ohne a, nicht zählbar).' },
+  { front: 'to book a flight', back: 'einen Flug buchen', example: 'Could you book a flight to Munich for Monday morning?' },
+  { front: 'boarding pass', back: 'Bordkarte', example: 'Please have your boarding pass and passport ready.' },
+  { front: 'carry-on (luggage)', back: 'Handgepäck', example: 'I only travel with carry-on luggage on short trips.', note: 'Britisch: hand luggage.' },
+  { front: 'layover', back: 'Zwischenstopp, Aufenthalt beim Umsteigen', example: 'The flight has a two-hour layover in Amsterdam.', note: 'Britisch auch: stopover.' },
+  { front: 'to check in', back: 'einchecken (am Flughafen oder im Hotel)', example: 'You can check in online 24 hours before departure.' },
+  { front: 'expense report', back: 'Reisekostenabrechnung, Spesenabrechnung', example: 'Please submit your expense report by the end of the month.' },
+  { front: 'receipt', back: 'Beleg, Quittung', example: 'Keep all your receipts – you need them for your expense report.', note: 'Das p wird nicht gesprochen: [rɪˈsiːt].' },
+  { front: 'to be reimbursed', back: '(Kosten) erstattet bekommen', example: 'Travel costs will be reimbursed by the company.' },
+  { front: 'per diem', back: 'Tagespauschale, Tagegeld (für Verpflegung)', example: 'The per diem for trips abroad is 50 euros.', note: 'Lateinisch für „pro Tag“.' },
+]);
+
 export const businessEnglishDeck: SeedDeck = {
   id: 'business-english',
   name: 'Corporate Business English',
@@ -191,5 +217,6 @@ export const businessEnglishDeck: SeedDeck = {
     ...falseFriends,
     ...added('2026-10-25', [...presentations, ...networking]),
     ...added('2026-10-31', [...phone, ...hiring]),
+    ...added('2026-11-07', [...service, ...travel]),
   ],
 };

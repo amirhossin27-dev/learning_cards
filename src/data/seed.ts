@@ -1,6 +1,7 @@
 import type { Deck } from '../types';
 import { businessEnglishDeck } from './decks/business-english';
 import { biasesDeck } from './decks/biases';
+import { financeDeck } from './decks/finance';
 import { geographyDeck } from './decks/geography';
 import { historyDeck } from './decks/history';
 import { myVocabDeck } from './decks/my-vocab';
@@ -32,4 +33,5 @@ export const builtInDecks: SeedDeck[] = [
   // Decks of the week, oldest first (see decks/README.md).
   biasesDeck,
   spaceDeck,
+  financeDeck,
 ];

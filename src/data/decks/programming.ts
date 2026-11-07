@@ -10,6 +10,9 @@ const SECURITY = 'Sicherheit';
 const SHELL = 'Kommandozeile';
 const STRUCTURES = 'Datenstrukturen';
 const PYTHON = 'Python';
+const GIT = 'Git im Alltag';
+const JS = 'JavaScript';
+const TESTING = 'Testen';
 
 // The first release.
 const classics = [
@@ -118,6 +121,35 @@ const python = group(PYTHON, [
   { front: 'Was bedeutet None in Python?', back: 'Der Wert für „kein Wert“, vergleichbar mit null in anderen Sprachen.' },
 ]);
 
+const git = group(GIT, [
+  { front: 'Was macht git status?', back: 'Zeigt, welche Dateien geändert, neu oder schon für den nächsten Commit vorgemerkt sind.' },
+  { front: 'Was macht git add?', back: 'Merkt Änderungen für den nächsten Commit vor (Staging).', note: 'git add . nimmt alle Änderungen im aktuellen Ordner auf.' },
+  { front: 'Was macht git pull?', back: 'Holt neue Commits vom Server und führt sie mit dem lokalen Stand zusammen.', note: 'git pull = git fetch + git merge.' },
+  { front: 'Was macht git clone?', back: 'Lädt ein Repository komplett mit Verlauf herunter und legt eine lokale Kopie an.' },
+  { front: 'Wozu dient die Datei .gitignore?', back: 'Sie listet Dateien und Ordner, die Git nicht verfolgen soll, z. B. node_modules oder Passwortdateien.' },
+  { front: 'Was macht git stash?', back: 'Legt unfertige Änderungen beiseite, damit man sauber an etwas anderem arbeiten kann.', note: 'git stash pop holt sie zurück.' },
+  { front: 'Was macht git log?', back: 'Zeigt den Verlauf der Commits mit Autor, Datum und Nachricht.', note: 'git log --oneline zeigt jeden Commit in einer Zeile.' },
+]);
+
+const javascript = group(JS, [
+  { front: 'let vs. const in JavaScript', back: 'Eine mit let deklarierte Variable kann neu zugewiesen werden, eine mit const nicht.', note: 'Faustregel: immer const, außer der Wert muss sich ändern. var gilt als veraltet.' },
+  { front: '== vs. === in JavaScript', back: '== vergleicht nach automatischer Typumwandlung, === vergleicht Wert und Typ.', note: '0 == "0" ist true, 0 === "0" ist false. Besser immer === verwenden.' },
+  { front: 'Wozu dient console.log()?', back: 'Gibt Werte in der Konsole aus – das einfachste Mittel, um Code zu untersuchen.', note: 'Im Browser sieht man die Ausgabe in den Entwicklertools (F12).' },
+  { front: 'Was ist eine Arrow Function?', back: 'Eine Kurzschreibweise für Funktionen in JavaScript: (a, b) => a + b.' },
+  { front: 'Was ist das DOM?', back: 'Das Document Object Model: die Baumstruktur einer Webseite, die JavaScript lesen und verändern kann.' },
+  { front: 'Was ist ein Promise?', back: 'Ein Objekt für ein Ergebnis, das erst später feststeht, z. B. die Antwort eines Servers.', note: 'Mit async/await lässt sich solcher Code wie normaler, der Reihe nach ablaufender Code schreiben.' },
+  { front: 'Was ist Node.js?', back: 'Eine Laufzeitumgebung, mit der JavaScript außerhalb des Browsers läuft, z. B. auf Servern.' },
+]);
+
+const testing = group(TESTING, [
+  { front: 'Was ist ein Integrationstest?', back: 'Ein Test, der prüft, ob mehrere Teile zusammen richtig funktionieren, z. B. Code und Datenbank.' },
+  { front: 'Was ist ein End-to-End-Test?', back: 'Ein Test, der die ganze Anwendung wie ein Nutzer bedient, z. B. im Browser klicken und tippen.', note: 'Bekannte Werkzeuge: Playwright, Cypress.' },
+  { front: 'Was ist die Testpyramide?', back: 'Ein Leitbild: viele schnelle Unit-Tests als Basis, weniger Integrationstests, ganz wenige End-to-End-Tests an der Spitze.' },
+  { front: 'Was ist TDD?', back: 'Test-Driven Development: erst einen fehlschlagenden Test schreiben, dann den Code, der ihn bestehen lässt, dann aufräumen.', note: 'Merksatz: Red – Green – Refactor.' },
+  { front: 'Was ist ein Mock?', back: 'Ein Platzhalter, der in Tests einen echten Teil ersetzt, z. B. eine Datenbank oder einen Server.' },
+  { front: 'Was ist Testabdeckung (Code Coverage)?', back: 'Der Anteil des Codes, der beim Ausführen der Tests durchlaufen wird, meist in Prozent.', note: 'Hohe Abdeckung heißt nicht automatisch gute Tests.' },
+]);
+
 export const programmingDeck: SeedDeck = {
   id: 'programming',
   name: 'Programmieren Basics',
@@ -131,5 +163,6 @@ export const programmingDeck: SeedDeck = {
     ...classics,
     ...added('2026-10-25', [...basics, ...concepts, ...data, ...web, ...tools, ...security]),
     ...added('2026-10-31', [...shell, ...structures, ...python]),
+    ...added('2026-11-07', [...git, ...javascript, ...testing]),
   ],
 };
