@@ -1,16 +1,12 @@
 import type { Rating } from './srs';
 
-/**
- * Building blocks for the quiz methods: picking wrong answers for multiple
- * choice and checking a typed answer with some tolerance.
- */
+/** Building blocks for multiple choice: picking wrong answers and rating the result. */
 
-export type StudyMethod = 'flip' | 'choice' | 'type';
+export type StudyMethod = 'flip' | 'choice';
 
 export const METHODS: { value: StudyMethod; label: string }[] = [
   { value: 'flip', label: 'Karte' },
   { value: 'choice', label: 'Auswahl' },
-  { value: 'type', label: 'Tippen' },
 ];
 
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
@@ -51,7 +47,8 @@ const LEADING_WORD = /^(to|the|a|an|der|die|das|ein|eine|le|la|les|el|los|las|il
 const words = (text: string) => normalize(text).split(' ').filter(Boolean).length;
 
 /**
- * All spellings that count as correct, normalized. "(ein Meeting / Projekt) starten"
+ * All spellings of an answer, normalized, so a wrong option is never just
+ * another way of writing the right one. "(ein Meeting / Projekt) starten"
  * also accepts "starten", "to kick off" also "kick off", and a list of short
  * synonyms like "Tagesordnung, Agenda" accepts each one.
  */
@@ -75,54 +72,6 @@ export function answerVariants(answer: string): string[] {
     }
   }
   return [...out];
-}
-
-/** Longer answers (explanations, sentences) are better asked as multiple choice. */
-export const MAX_TYPED_LENGTH = 30;
-
-export function isTypeable(answer: string): boolean {
-  return answerVariants(answer).some((v) => v.length <= MAX_TYPED_LENGTH);
-}
-
-export function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const row = [i];
-    for (let j = 1; j <= b.length; j++) {
-      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    }
-    prev = row;
-  }
-  return prev[b.length];
-}
-
-/** How many typos an answer of this length may have. Short words must be exact. */
-export function allowedTypos(length: number): number {
-  if (length < 4) return 0;
-  if (length < 12) return 1;
-  return 2;
-}
-
-const digits = (text: string) => text.replace(/\D/g, '');
-
-export type Verdict = 'exact' | 'typo' | 'wrong';
-
-export function checkTyped(input: string, answer: string): Verdict {
-  const typed = normalize(input);
-  if (!typed) return 'wrong';
-  const variants = answerVariants(answer);
-  const bare = typed.replace(LEADING_WORD, '');
-  if (variants.includes(typed) || variants.includes(bare)) return 'exact';
-  const close = variants.some((v) => {
-    const limit = allowedTypos(v.length);
-    // A typo in a word is fine, a wrong number (year, amount) is not.
-    if (digits(v) !== digits(typed)) return false;
-    return limit > 0 && Math.min(levenshtein(typed, v), levenshtein(bare, v)) <= limit;
-  });
-  return close ? 'typo' : 'wrong';
 }
 
 export interface Candidate {
@@ -163,14 +112,10 @@ export function pickDistractors(
 }
 
 /** Time in ms under which a right answer counts as "Leicht". */
-export function fastLimit(method: StudyMethod, answer: string): number {
-  if (method === 'type') return Math.min(15_000, 5_000 + answer.length * 200);
-  return 5_000;
-}
+export const FAST_ANSWER = 5_000;
 
-/** Turns a quiz result into one of the four ratings of the schedule. */
-export function autoRating(correct: boolean, verdict: Verdict | undefined, elapsed: number, limit: number): Rating {
+/** Turns a multiple choice result into one of the four ratings of the schedule. */
+export function autoRating(correct: boolean, elapsed: number, limit = FAST_ANSWER): Rating {
   if (!correct) return 1;
-  if (verdict === 'typo') return 3;
   return elapsed < limit ? 4 : 3;
 }
