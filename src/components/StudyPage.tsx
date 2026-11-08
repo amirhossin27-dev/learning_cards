@@ -1,9 +1,9 @@
-import { ArrowLeftRight, Check, Ellipsis, Keyboard, Layers, ListChecks, Plus, RotateCcw, Sparkles, X } from 'lucide-react';
+import { ArrowLeftRight, Check, Ellipsis, Layers, ListChecks, Plus, RotateCcw, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCountUp } from '../hooks/useCountUp';
 import { useToday } from '../hooks/useToday';
 import { href, navigate, type StudyMode } from '../lib/router';
-import { autoRating, checkTyped, fastLimit, isTypeable, METHODS, pickDistractors, type Candidate, type StudyMethod } from '../lib/quiz';
+import { autoRating, FAST_ANSWER, METHODS, pickDistractors, type Candidate, type StudyMethod } from '../lib/quiz';
 import { resolveLang, useSpeech } from '../lib/speech';
 import { BOX_LABELS, formatWait, isNew, previewWaits, RATINGS, repeatsInSession, schedule, type Rating } from '../lib/srs';
 import { actions, buildPractice, buildSession, getState, HARD_ROUND, hardCards, newCardsLeft, planToday, shuffle, useAppData } from '../lib/store';
@@ -33,7 +33,7 @@ const DIRECTIONS: { value: Direction; label: string }[] = [
   { value: 'mixed', label: 'Gemischt' },
 ];
 
-const METHOD_ICONS: Record<StudyMethod, typeof Layers> = { flip: Layers, choice: ListChecks, type: Keyboard };
+const METHOD_ICONS: Record<StudyMethod, typeof Layers> = { flip: Layers, choice: ListChecks };
 
 const MODE_LABELS: Record<StudyMode, string> = { extra: 'Extra-Runde', new: 'Neue Karten', hard: 'Schwierige Karten' };
 
@@ -55,17 +55,11 @@ function buildQueue(deckId: string | undefined, tag: string | undefined, mode: S
 }
 
 interface Quiz {
-  kind: 'choice' | 'type';
-  options?: string[];
-  correct?: number;
-  /** Typing was chosen, but this card's answer is too long for it. */
-  fallback: boolean;
+  options: string[];
+  correct: number;
 }
 
-/**
- * How the current card is asked. Typing falls back to multiple choice for long
- * answers, multiple choice to the flip card when there is nothing to choose from.
- */
+/** Multiple choice options for the current card, or null to show the flip card (also when there is nothing to choose from). */
 function buildQuiz(item: QueueItem, method: StudyMethod): Quiz | null {
   if (method === 'flip') return null;
   const s = getState();
@@ -74,7 +68,6 @@ function buildQuiz(item: QueueItem, method: StudyMethod): Quiz | null {
   if (!deck) return null;
   const side = (c: Card, reversed: boolean) => (reversed ? c.front : c.back);
   const answer = side(card, item.reversed);
-  if (method === 'type' && isTypeable(answer)) return { kind: 'type', fallback: false };
 
   const others = s.cards.filter((c) => c.id !== card.id);
   let candidates: Candidate[] = others.filter((c) => c.deckId === card.deckId).map((c) => ({ text: side(c, item.reversed), tag: c.tag, near: true }));
@@ -93,7 +86,7 @@ function buildQuiz(item: QueueItem, method: StudyMethod): Quiz | null {
   }
   if (wrong.length === 0) return null;
   const options = shuffle([answer, ...wrong]);
-  return { kind: 'choice', options, correct: options.indexOf(answer), fallback: method === 'type' };
+  return { options, correct: options.indexOf(answer) };
 }
 
 /** "3 Tage" → "in 3 Tagen", "< 1 Min." → "gleich". */
@@ -120,7 +113,11 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   const [flipped, setFlipped] = useState(false);
   // 'swipe': the card already flies out on its own from where the finger let go.
   const [leaving, setLeaving] = useState<'left' | 'right' | 'swipe' | null>(null);
-  const [method, setMethod] = useState<StudyMethod>(() => settings.methods?.[methodKey] ?? 'flip');
+  // "type" was a short-lived typing method; whoever picked it gets multiple choice now.
+  const [method, setMethod] = useState<StudyMethod>(() => {
+    const saved: string | undefined = settings.methods?.[methodKey];
+    return saved === 'choice' || saved === 'type' ? 'choice' : 'flip';
+  });
   const [result, setResult] = useState<QuizResult | null>(null);
   const shownAt = useRef(Date.now());
   const [tally, setTally] = useState({ answers: 0, again: 0 });
@@ -236,24 +233,16 @@ export function StudyPage({ deckId, tag, mode }: Props) {
     [current, leaving, stop, practice],
   );
 
-  const answerText = faces?.answer.text ?? '';
   const elapsed = () => Date.now() - shownAt.current;
 
   const pick = useCallback(
     (i: number) => {
       if (!quiz || result || leaving) return;
       const correct = i === quiz.correct;
-      setResult({ correct, picked: i, rating: autoRating(correct, undefined, elapsed(), fastLimit('choice', answerText)) });
+      setResult({ correct, picked: i, rating: autoRating(correct, elapsed(), FAST_ANSWER) });
     },
-    [quiz, result, leaving, answerText],
+    [quiz, result, leaving],
   );
-
-  const submitTyped = (text: string) => {
-    if (result || leaving) return;
-    const verdict = checkTyped(text, answerText);
-    const correct = verdict !== 'wrong';
-    setResult({ correct, typed: text, verdict, rating: autoRating(correct, verdict, elapsed(), fastLimit('type', answerText)) });
-  };
 
   const continueQuiz = useCallback(() => {
     if (result) rate(result.rating);
@@ -274,7 +263,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
         if (result && (e.key === 'Enter' || e.key === 'ArrowRight')) {
           e.preventDefault();
           continueQuiz();
-        } else if (!result && quiz.kind === 'choice' && /^[1-9]$/.test(e.key) && Number(e.key) <= (quiz.options?.length ?? 0)) pick(Number(e.key) - 1);
+        } else if (!result && /^[1-9]$/.test(e.key) && Number(e.key) <= quiz.options.length) pick(Number(e.key) - 1);
         else if (e.key === 's' && supported) speak(faces.question.text, faces.question.lang, 'q');
         return;
       }
@@ -424,23 +413,17 @@ export function StudyPage({ deckId, tag, mode }: Props) {
           {quiz ? (
             <>
               <QuizCard
-                key={`${current.key}-${quiz.kind}`}
-                kind={quiz.kind}
+                key={current.key}
                 question={faces.question}
-                answer={faces.answer}
                 example={faces.example}
                 note={live.note}
                 tag={live.tag}
                 options={quiz.options}
                 correct={quiz.correct}
-                fallback={quiz.fallback}
                 result={result}
                 leaving={!!leaving}
                 onPick={pick}
-                onSubmit={submitTyped}
-                onGiveUp={() => !result && setResult({ correct: false, typed: '', verdict: 'wrong', rating: 1 })}
                 onContinue={continueQuiz}
-                onOverride={() => rate(3)}
                 speak={speak}
                 speakingKey={speakingKey}
                 speechSupported={supported}
@@ -452,9 +435,9 @@ export function StudyPage({ deckId, tag, mode }: Props) {
                   </p>
                 )}
                 <p className="study__hint">
-                  <span className="only-touch">{quiz.kind === 'choice' ? 'Tippe auf die richtige Antwort' : 'Schreib die Antwort und tippe auf Fertig'}</span>
+                  <span className="only-touch">Tippe auf die richtige Antwort</span>
                   <span className="only-pointer">
-                    {quiz.kind === 'choice' ? <><kbd>1</kbd>–<kbd>{quiz.options?.length}</kbd> auswählen</> : <><kbd>Enter</kbd> prüfen</>} · <kbd>Enter</kbd> weiter ·{' '}
+                    <kbd>1</kbd>–<kbd>{quiz.options.length}</kbd> auswählen · <kbd>Enter</kbd> weiter ·{' '}
                     <kbd>S</kbd> vorlesen
                   </span>
                 </p>

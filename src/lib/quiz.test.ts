@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerVariants, autoRating, checkTyped, isTypeable, normalize, pickDistractors, type Candidate } from './quiz';
+import { answerVariants, autoRating, normalize, pickDistractors, type Candidate } from './quiz';
 
 describe('normalize', () => {
   it('ignores case, punctuation, accents and spells out umlauts', () => {
@@ -25,42 +25,6 @@ describe('answerVariants', () => {
   });
 });
 
-describe('isTypeable', () => {
-  it('accepts short answers and rejects explanations', () => {
-    expect(isTypeable('Ottawa')).toBe(true);
-    expect(isTypeable('Johannes Gutenberg (um 1450)')).toBe(true);
-    expect(isTypeable('Eine Schnittstelle, über die Programme miteinander kommunizieren.')).toBe(false);
-  });
-});
-
-describe('checkTyped', () => {
-  it('accepts exact answers in any case and with or without umlauts', () => {
-    expect(checkTyped('ottawa', 'Ottawa')).toBe('exact');
-    expect(checkTyped('Muenchen', 'München')).toBe('exact');
-    expect(checkTyped('kick off', 'to kick off')).toBe('exact');
-    expect(checkTyped('to circle back', 'to circle back')).toBe('exact');
-    expect(checkTyped('starten', '(ein Meeting / Projekt) starten')).toBe('exact');
-    expect(checkTyped('Agenda', 'Tagesordnung, Agenda')).toBe('exact');
-  });
-
-  it('tolerates one typo, two in long answers, none in short words', () => {
-    expect(checkTyped('Otawa', 'Ottawa')).toBe('typo');
-    expect(checkTyped('Tagesordnug', 'Tagesordnung')).toBe('typo');
-    expect(checkTyped('Wiedervereinigng', 'Wiedervereinigung')).toBe('typo');
-    expect(checkTyped('Rim', 'Rom')).toBe('wrong');
-    expect(checkTyped('Toronto', 'Ottawa')).toBe('wrong');
-  });
-
-  it('never lets a wrong number pass as a typo', () => {
-    expect(checkTyped('9. November 1988', '9. November 1989')).toBe('wrong');
-    expect(checkTyped('9 Novmber 1989', '9. November 1989')).toBe('typo');
-  });
-
-  it('treats an empty answer as wrong', () => {
-    expect(checkTyped('   ', 'Ottawa')).toBe('wrong');
-  });
-});
-
 describe('pickDistractors', () => {
   const noRandom = () => 0;
   const pool: Candidate[] = [
@@ -72,6 +36,11 @@ describe('pickDistractors', () => {
     { text: 'Wien', tag: 'Europa', near: true },
     { text: 'Rom', tag: 'Europa', near: false },
   ];
+
+  it('never offers another spelling of the right answer', () => {
+    const picked = pickDistractors('(ein Meeting / Projekt) starten', undefined, [{ text: 'starten', near: true }, { text: 'beenden', near: true }], 3, noRandom);
+    expect(picked).toEqual(['beenden']);
+  });
 
   it('never offers the right answer or the same text twice', () => {
     const picked = pickDistractors('Bern', 'Europa', pool, 3, noRandom);
@@ -91,10 +60,9 @@ describe('pickDistractors', () => {
 });
 
 describe('autoRating', () => {
-  it('maps quiz results to ratings', () => {
-    expect(autoRating(false, undefined, 1000, 5000)).toBe(1);
-    expect(autoRating(true, undefined, 1000, 5000)).toBe(4);
-    expect(autoRating(true, undefined, 9000, 5000)).toBe(3);
-    expect(autoRating(true, 'typo', 1000, 5000)).toBe(3);
+  it('maps multiple choice results to ratings', () => {
+    expect(autoRating(false, 1000)).toBe(1);
+    expect(autoRating(true, 1000)).toBe(4);
+    expect(autoRating(true, 9000)).toBe(3);
   });
 });
