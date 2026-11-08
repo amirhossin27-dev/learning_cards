@@ -1,13 +1,19 @@
 import type { Rating } from './srs';
 
-/** Building blocks for multiple choice: picking wrong answers and rating the result. */
+/** Building blocks for the quiz methods: picking wrong answers, gaps in sentences and rating the result. */
 
-export type StudyMethod = 'flip' | 'choice';
+export type StudyMethod = 'flip' | 'choice' | 'cloze' | 'listen' | 'pairs' | 'truefalse';
 
 export const METHODS: { value: StudyMethod; label: string }[] = [
   { value: 'flip', label: 'Karte' },
   { value: 'choice', label: 'Auswahl' },
+  { value: 'cloze', label: 'Lückentext' },
+  { value: 'listen', label: 'Hören' },
+  { value: 'pairs', label: 'Paare' },
+  { value: 'truefalse', label: 'Richtig/Falsch' },
 ];
+
+export const isMethod = (value: unknown): value is StudyMethod => METHODS.some((m) => m.value === value);
 
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
 
@@ -111,10 +117,51 @@ export function pickDistractors(
     .map((s) => s.text);
 }
 
+/** A vocabulary term as it is looked for in a sentence: without "to" and bracketed hints. */
+export function bareTerm(term: string): string {
+  return withoutBrackets(term).replace(/^\s*to\s+/i, '').replace(/\s+/g, ' ').trim();
+}
+
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** One word of a term, also in its common English forms ("decide" → decides, decided, deciding). */
+function wordPattern(word: string): string {
+  if (/[^aeiou]y$/i.test(word)) return `${escapeRe(word.slice(0, -1))}(?:y|ies|ied|ying)`;
+  if (/[^e]e$/i.test(word) && word.length > 2) return `${escapeRe(word.slice(0, -1))}(?:e|es|ed|ing)`;
+  const last = escapeRe(word.slice(-1));
+  return `${escapeRe(word)}(?:s|es|ed|ing|${last}ed|${last}ing)?`;
+}
+
+export interface Cloze {
+  before: string;
+  /** The words cut out of the sentence, as they appear there. */
+  gap: string;
+  after: string;
+}
+
+/**
+ * Finds a term in its example sentence so it can be cut out: "to kick off" in
+ * "Let's kick off the meeting", also as "kicked off". Null when the sentence
+ * doesn't contain it (or the term is too long to make a good gap).
+ */
+export function findCloze(term: string, sentence: string): Cloze | null {
+  const bare = bareTerm(term);
+  const parts = bare.split(' ').filter(Boolean);
+  if (!bare || bare.length < 2 || parts.length > 5) return null;
+  const pattern = new RegExp(`(?<![\\p{L}])${parts.map(wordPattern).join('\\s+')}(?![\\p{L}])`, 'iu');
+  const match = pattern.exec(sentence);
+  if (!match) return null;
+  return { before: sentence.slice(0, match.index), gap: match[0], after: sentence.slice(match.index + match[0].length) };
+}
+
+/** Pairs need short texts on both sides so five of them fit on a phone screen. */
+export const PAIR_MAX_LENGTH = 40;
+export const PAIR_COUNT = 5;
+
 /** Time in ms under which a right answer counts as "Leicht". */
 export const FAST_ANSWER = 5_000;
 
-/** Turns a multiple choice result into one of the four ratings of the schedule. */
+/** Turns a quiz result into one of the four ratings of the schedule. */
 export function autoRating(correct: boolean, elapsed: number, limit = FAST_ANSWER): Rating {
   if (!correct) return 1;
   return elapsed < limit ? 4 : 3;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerVariants, autoRating, normalize, pickDistractors, type Candidate } from './quiz';
+import { answerVariants, autoRating, findCloze, normalize, pickDistractors, type Candidate } from './quiz';
 
 describe('normalize', () => {
   it('ignores case, punctuation, accents and spells out umlauts', () => {
@@ -64,5 +64,28 @@ describe('autoRating', () => {
     expect(autoRating(false, 1000)).toBe(1);
     expect(autoRating(true, 1000)).toBe(4);
     expect(autoRating(true, 9000)).toBe(3);
+  });
+});
+
+describe('findCloze', () => {
+  it('cuts the term out of its example sentence', () => {
+    expect(findCloze('to kick off', "Let's kick off the meeting with a quick round of introductions.")).toEqual({
+      before: "Let's ",
+      gap: 'kick off',
+      after: ' the meeting with a quick round of introductions.',
+    });
+  });
+
+  it('finds common English forms and ignores case and bracketed hints', () => {
+    expect(findCloze('to decide', 'We decided to wait.')?.gap).toBe('decided');
+    expect(findCloze('to apply', 'She applied for the job.')?.gap).toBe('applied');
+    expect(findCloze('to stop', 'They stopped the project.')?.gap).toBe('stopped');
+    expect(findCloze('agenda (meeting)', 'The Agenda is ready.')?.gap).toBe('Agenda');
+    expect(findCloze('deadline', 'The deadlines are tight.')?.gap).toBe('deadlines');
+  });
+
+  it('does not match inside other words or when the term is missing', () => {
+    expect(findCloze('to be', 'It is because of you.')).toBeNull();
+    expect(findCloze('agenda', 'Nothing to see here.')).toBeNull();
   });
 });

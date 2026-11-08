@@ -1,7 +1,9 @@
-import { Play, Plus, Sparkles, Target, Upload } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useToday } from '../hooks/useToday';
+import { availableMethods } from '../lib/questions';
 import { href } from '../lib/router';
+import { useSpeech } from '../lib/speech';
 import { addDays, endOfDay, isNew } from '../lib/srs';
 import { deckStats, HARD_ROUND, hardCards, minutesFor, useAppData } from '../lib/store';
 import type { Card } from '../types';
@@ -11,6 +13,7 @@ import { DeckTile } from './DeckTile';
 import { GoalCard } from './GoalCard';
 import { Heatmap } from './Heatmap';
 import { ImportDialog } from './ImportDialog';
+import { StudyLauncher } from './StudyLauncher';
 
 const DATE = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -24,7 +27,8 @@ function greeting(now: number) {
 }
 
 export function HomePage() {
-  const { decks, cards, history } = useAppData();
+  const { decks, cards, history, settings } = useAppData();
+  const { supported } = useSpeech(settings.speechRate);
   const { now, plan, count, reviews, goal, streak } = useToday();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -48,7 +52,30 @@ export function HomePage() {
   }, [cards, now]);
 
   const all = deckStats(cards, now);
-  const hard = useMemo(() => hardCards(cards).length, [cards]);
+  const hard = useMemo(() => Math.min(hardCards(cards).length, HARD_ROUND), [cards]);
+  const methods = useMemo(() => availableMethods(cards, decks, supported), [cards, decks, supported]);
+  // The big button: what is due, else new cards beyond today's budget, else free practice.
+  const launch =
+    cards.length === 0
+      ? { route: null, title: 'Weiterlernen', subtitle: 'Leg zuerst einen Stapel mit Karten an' }
+      : count > 0
+        ? {
+            route: { name: 'study' } as const,
+            title: 'Weiterlernen',
+            subtitle: `${count} ${count === 1 ? 'Karte' : 'Karten'} · etwa ${minutesFor(count)} Min.`,
+          }
+        : all.fresh > 0
+          ? {
+              route: { name: 'study', mode: 'new' } as const,
+              title: 'Neue Karten lernen',
+              subtitle: `${all.fresh} neue ${all.fresh === 1 ? 'Karte wartet' : 'Karten warten'}`,
+            }
+          : {
+              route: { name: 'study', mode: 'extra' } as const,
+              title: 'Frei üben',
+              subtitle: 'Zählt fürs Tagesziel, verschiebt keine Termine',
+              isPractice: true,
+            };
   const goalCard = <GoalCard reviews={reviews} goal={goal} streak={streak} />;
 
   return (
@@ -85,35 +112,11 @@ export function HomePage() {
             </>
           )}
           <div className="only-narrow">{goalCard}</div>
-          <div className="today__actions">
-            {count > 0 ? (
-              <a className="btn btn--primary btn--lg" href={href({ name: 'study' })}>
-                <Play size={18} fill="currentColor" /> Lernen starten
-              </a>
-            ) : (
-              <>
-                {all.fresh > 0 && (
-                  <a className="btn btn--primary btn--lg" href={href({ name: 'study', mode: 'new' })}>
-                    <Plus size={18} /> Neue Karten lernen
-                  </a>
-                )}
-                <a
-                  className={`btn btn--lg ${all.fresh > 0 ? 'btn--secondary' : 'btn--primary'} ${cards.length === 0 ? 'is-disabled' : ''}`}
-                  href={href({ name: 'study', mode: 'extra' })}
-                >
-                  <Sparkles size={18} /> Extra-Runde
-                </a>
-              </>
-            )}
-            {hard > 0 && (
-              <a className="btn btn--secondary btn--lg" href={href({ name: 'study', mode: 'hard' })}>
-                <Target size={18} /> Schwierige Karten üben <span className="btn__count">{Math.min(hard, HARD_ROUND)}</span>
-              </a>
-            )}
-            <button className="btn btn--secondary btn--lg hide-mobile" onClick={() => setImporting(true)}>
-              <Upload size={18} /> CSV importieren
+          <StudyLauncher {...launch} scope={{ name: 'study' }} hard={hard} methods={methods} methodKey="today">
+            <button type="button" className="launcher__chip hide-mobile" onClick={() => setImporting(true)}>
+              <Upload size={15} /> CSV importieren
             </button>
-          </div>
+          </StudyLauncher>
         </section>
 
         <section>
