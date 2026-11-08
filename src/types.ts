@@ -23,6 +23,8 @@ export interface Card {
   /** How often a learned card was forgotten again. */
   lapses?: number;
   lastReviewed?: number;
+  /** The rating of the latest answer, also in extra rounds. 1 = wrong / "Nochmal". */
+  lastRating?: number;
   createdAt: number;
 }
 
@@ -42,6 +44,8 @@ export interface Deck {
   createdAt: number;
 }
 
+import type { StudyMethod } from './lib/quiz';
+
 export type Direction = 'front' | 'back' | 'mixed';
 
 export interface Settings {
@@ -56,6 +60,8 @@ export interface Settings {
   dailyGoal: number;
   /** New cards introduced per day across all decks. */
   newPerDay: number;
+  /** Study method per deck id ("today" and "hard" for the rounds across all decks). */
+  methods: Record<string, StudyMethod>;
 }
 
 export interface DayLog {

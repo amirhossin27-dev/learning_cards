@@ -1,9 +1,9 @@
-import { Play, Plus, Sparkles, Upload } from 'lucide-react';
+import { Play, Plus, Sparkles, Target, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useToday } from '../hooks/useToday';
 import { href } from '../lib/router';
 import { addDays, endOfDay, isNew } from '../lib/srs';
-import { deckStats, minutesFor, useAppData } from '../lib/store';
+import { deckStats, HARD_ROUND, hardCards, minutesFor, useAppData } from '../lib/store';
 import type { Card } from '../types';
 import { BoxBar } from './BoxBar';
 import { DeckEditor } from './DeckEditor';
@@ -48,6 +48,7 @@ export function HomePage() {
   }, [cards, now]);
 
   const all = deckStats(cards, now);
+  const hard = useMemo(() => hardCards(cards).length, [cards]);
   const goalCard = <GoalCard reviews={reviews} goal={goal} streak={streak} />;
 
   return (
@@ -103,6 +104,11 @@ export function HomePage() {
                   <Sparkles size={18} /> Extra-Runde
                 </a>
               </>
+            )}
+            {hard > 0 && (
+              <a className="btn btn--secondary btn--lg" href={href({ name: 'study', mode: 'hard' })}>
+                <Target size={18} /> Schwierige Karten üben <span className="btn__count">{Math.min(hard, HARD_ROUND)}</span>
+              </a>
             )}
             <button className="btn btn--secondary btn--lg hide-mobile" onClick={() => setImporting(true)}>
               <Upload size={18} /> CSV importieren

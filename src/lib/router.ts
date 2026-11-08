@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 // Hash routing keeps deep links working on GitHub Pages without a server.
-export type StudyMode = 'extra' | 'new';
+export type StudyMode = 'extra' | 'new' | 'hard';
 
 // The URL uses German words, the code English ones.
-const MODE_PARAM: Record<StudyMode, string> = { extra: 'extra', new: 'neu' };
+const MODE_PARAM: Record<StudyMode, string> = { extra: 'extra', new: 'neu', hard: 'schwierig' };
 
 export type Route =
   | { name: 'home' }
@@ -12,7 +12,8 @@ export type Route =
   | { name: 'deck'; id: string }
   /**
    * `id` undefined = today's round across all decks.
-   * `extra` = study ahead without changing the schedule, `new` = learn new cards beyond today's budget.
+   * `extra` = study ahead without changing the schedule, `new` = learn new cards beyond today's budget,
+   * `hard` = practise the difficult cards (like `extra`, the schedule stays as it is).
    */
   | { name: 'study'; id?: string; tag?: string; mode?: StudyMode }
   | { name: 'stats' }
