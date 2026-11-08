@@ -1,13 +1,14 @@
-import { ArrowLeft, Download, Ellipsis, Pencil, Play, Plus, RotateCcw, Search, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Ellipsis, Pencil, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { exportCsv } from '../lib/csv';
 import { downloadText, slugify } from '../lib/download';
+import { availableMethods } from '../lib/questions';
 import { href, navigate } from '../lib/router';
 import { resolveLang, useSpeech } from '../lib/speech';
 import { useNow } from '../hooks/useToday';
 import { DeckIcon } from '../lib/deckIcons';
 import { BOX_COUNT, BOX_LABELS, DAY, endOfDay, isDue, isNew } from '../lib/srs';
-import { actions, deckStats, newCardsLeft, planToday, useAppData } from '../lib/store';
+import { actions, deckStats, HARD_ROUND, hardCards, minutesFor, newCardsLeft, planToday, useAppData } from '../lib/store';
 import type { Card } from '../types';
 import { BoxBar } from './BoxBar';
 import { CardEditor } from './CardEditor';
@@ -15,6 +16,7 @@ import { DeckEditor } from './DeckEditor';
 import { ImportDialog } from './ImportDialog';
 import { Modal } from './Modal';
 import { SpeakButton } from './SpeakButton';
+import { StudyLauncher } from './StudyLauncher';
 import { toast } from './Toast';
 
 type Dialog =
@@ -88,6 +90,31 @@ export function DeckPage({ deckId }: { deckId: string }) {
   const todayCount = tagPlan.due.length + tagPlan.fresh.length;
   const tagNew = tagCards.filter(isNew).length;
   const scope = { name: 'study', id: deck.id, tag: tag ?? undefined } as const;
+  const hard = Math.min(hardCards(tagCards).length, HARD_ROUND);
+  const methods = availableMethods(tagCards, decks, supported);
+  const what = tag ? `${tag} lernen` : 'Weiterlernen';
+  // The big button: what is due, else new cards beyond today's budget, else free practice.
+  const launch =
+    tagCards.length === 0
+      ? { route: null, title: what, subtitle: 'Leg zuerst ein paar Karten an' }
+      : todayCount > 0
+        ? {
+            route: scope,
+            title: what,
+            subtitle: `${todayCount} ${todayCount === 1 ? 'Karte' : 'Karten'} heute dran · etwa ${minutesFor(todayCount)} Min.`,
+          }
+        : tagNew > 0
+          ? {
+              route: { ...scope, mode: 'new' as const },
+              title: 'Neue Karten lernen',
+              subtitle: `Für heute erledigt · ${tagNew} neue ${tagNew === 1 ? 'Karte wartet' : 'Karten warten'}`,
+            }
+          : {
+              route: { ...scope, mode: 'extra' as const },
+              title: 'Frei üben',
+              subtitle: 'Für heute erledigt · verschiebt keine Termine',
+              isPractice: true,
+            };
 
   const exportDeck = () => {
     setMenuOpen(false);
@@ -118,6 +145,48 @@ export function DeckPage({ deckId }: { deckId: string }) {
 
       <section className="deck-hero" data-marker={deck.color % 6}>
         <i className="tab" aria-hidden="true" />
+        <div className="menu deck-hero__menu" ref={menu}>
+          <button className="icon-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="Weitere Aktionen" aria-expanded={menuOpen}>
+            <Ellipsis size={20} />
+          </button>
+          {menuOpen && (
+            <div className="menu__panel" role="menu">
+              {menuItem(Pencil, 'Stapel bearbeiten', () => setDialog({ kind: 'deck' }))}
+              {menuItem(Upload, 'CSV importieren', () => setDialog({ kind: 'import' }))}
+              <button className="menu__item" onClick={exportDeck} disabled={deckCards.length === 0}>
+                <Download size={16} /> CSV exportieren
+              </button>
+              {menuItem(RotateCcw, 'Fortschritt zurücksetzen', () =>
+                setDialog({
+                  kind: 'confirm',
+                  title: 'Fortschritt zurücksetzen?',
+                  text: `Alle ${deckCards.length} Karten in „${deck.name}“ gelten danach wieder als neu.`,
+                  action: () => {
+                    actions.resetProgress(deck.id);
+                    toast('Fortschritt zurückgesetzt');
+                  },
+                }),
+              )}
+              {menuItem(
+                Trash2,
+                'Stapel löschen',
+                () =>
+                  setDialog({
+                    kind: 'confirm',
+                    title: 'Stapel löschen?',
+                    text: `„${deck.name}“ und alle ${deckCards.length} Karten werden gelöscht. Tipp: Exportiere ihn vorher als CSV.`,
+                    danger: true,
+                    action: () => {
+                      actions.deleteDeck(deck.id);
+                      toast('Stapel gelöscht');
+                      navigate({ name: 'decks' });
+                    },
+                  }),
+                true,
+              )}
+            </div>
+          )}
+        </div>
         <div className="deck-hero__main">
           <span className="deck-hero__icon">
             <DeckIcon name={deck.icon} size={22} />
@@ -142,71 +211,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
           </div>
         </dl>
         <BoxBar boxes={stats.boxes} legend size="md" />
-        <div className="deck-hero__actions">
-          {todayCount > 0 || tagCards.length === 0 ? (
-            <a
-              className={`btn btn--primary btn--lg ${tagCards.length === 0 ? 'is-disabled' : ''}`}
-              href={href(scope)}
-              aria-disabled={tagCards.length === 0}
-            >
-              <Play size={18} fill="currentColor" /> {tag ? `${tag} lernen` : 'Lernen starten'}
-            </a>
-          ) : (
-            <>
-              {/* Today's new-card budget is used up elsewhere, but this deck still has unseen cards. */}
-              {tagNew > 0 && (
-                <a className="btn btn--primary btn--lg" href={href({ ...scope, mode: 'new' })}>
-                  <Plus size={18} /> Neue Karten lernen
-                </a>
-              )}
-              <a className={`btn btn--lg ${tagNew > 0 ? 'btn--secondary' : 'btn--primary'}`} href={href({ ...scope, mode: 'extra' })}>
-                <Sparkles size={18} /> Extra-Runde
-              </a>
-            </>
-          )}
-          <div className="menu" ref={menu}>
-            <button className="btn btn--secondary btn--icon btn--lg" onClick={() => setMenuOpen((o) => !o)} aria-label="Weitere Aktionen" aria-expanded={menuOpen}>
-              <Ellipsis size={20} />
-            </button>
-            {menuOpen && (
-              <div className="menu__panel" role="menu">
-                {menuItem(Pencil, 'Stapel bearbeiten', () => setDialog({ kind: 'deck' }))}
-                {menuItem(Upload, 'CSV importieren', () => setDialog({ kind: 'import' }))}
-                <button className="menu__item" onClick={exportDeck} disabled={deckCards.length === 0}>
-                  <Download size={16} /> CSV exportieren
-                </button>
-                {menuItem(RotateCcw, 'Fortschritt zurücksetzen', () =>
-                  setDialog({
-                    kind: 'confirm',
-                    title: 'Fortschritt zurücksetzen?',
-                    text: `Alle ${deckCards.length} Karten in „${deck.name}“ gelten danach wieder als neu.`,
-                    action: () => {
-                      actions.resetProgress(deck.id);
-                      toast('Fortschritt zurückgesetzt');
-                    },
-                  }),
-                )}
-                {menuItem(
-                  Trash2,
-                  'Stapel löschen',
-                  () =>
-                    setDialog({
-                      kind: 'confirm',
-                      title: 'Stapel löschen?',
-                      text: `„${deck.name}“ und alle ${deckCards.length} Karten werden gelöscht. Tipp: Exportiere ihn vorher als CSV.`,
-                      danger: true,
-                      action: () => {
-                        actions.deleteDeck(deck.id);
-                        toast('Stapel gelöscht');
-                        navigate({ name: 'decks' });
-                      },
-                    }),
-                  true,
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <StudyLauncher {...launch} scope={scope} hard={hard} methods={methods} methodKey={deck.id} />
       </section>
 
       <section>
@@ -214,7 +219,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
           <h2>
             Karten <span className="muted">{deckCards.length}</span>
           </h2>
-          <button className="btn btn--primary btn--sm hide-mobile" onClick={() => setDialog({ kind: 'card' })}>
+          <button className="btn btn--primary btn--sm" onClick={() => setDialog({ kind: 'card' })}>
             <Plus size={16} /> Karte hinzufügen
           </button>
         </div>
@@ -288,10 +293,6 @@ export function DeckPage({ deckId }: { deckId: string }) {
           </ul>
         )}
       </section>
-
-      <button className="fab only-mobile" onClick={() => setDialog({ kind: 'card' })} aria-label="Karte hinzufügen">
-        <Plus size={26} />
-      </button>
 
       {dialog?.kind === 'card' && <CardEditor deckId={deck.id} card={dialog.card} tags={tags} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'deck' && <DeckEditor deck={deck} onClose={() => setDialog(null)} />}

@@ -1037,15 +1037,8 @@ kbd {
   margin-top: 6px;
 }
 
-.today__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.today__hero .launcher {
   margin-top: 6px;
-}
-
-.today__actions .btn {
-  flex: 1 1 auto;
 }
 
 .today__rail {
@@ -1068,12 +1061,6 @@ kbd {
   font-size: 0.7rem;
   font-weight: 400;
   color: var(--ink-3);
-}
-
-@media (min-width: 640px) {
-  .today__actions .btn {
-    flex: 0 0 auto;
-  }
 }
 
 @media (min-width: 1240px) {
@@ -1273,6 +1260,8 @@ a.deck-tile:hover {
   display: flex;
   align-items: flex-start;
   gap: 14px;
+  /* Room for the ⋯ button in the corner. */
+  padding-right: 36px;
 }
 
 .deck-hero__icon {
@@ -1318,25 +1307,123 @@ a.deck-tile:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.deck-hero__actions {
+.deck-hero__menu {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+}
+
+/* One big button for whatever is next, quieter chips for the other ways to learn. */
+.launcher {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.launcher__go {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: var(--on-primary);
+  text-align: left;
+  transition: transform 0.15s var(--ease), opacity 0.2s;
+}
+
+.launcher__go:active {
+  transform: scale(0.985);
+}
+
+.launcher__go > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.launcher__go strong {
+  font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.launcher__go small {
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.launcher__chev {
+  flex: none;
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.launcher__go.is-disabled {
+  background: var(--tint);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.launcher__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
-.deck-hero__actions > .btn {
-  flex: 1 1 auto;
+.launcher__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  font-weight: 550;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
 }
 
-/* Two buttons don't fit next to each other on a phone: the main one gets its own row. */
-.deck-hero__actions:has(> .btn + .btn) > .btn--primary {
-  flex-basis: 100%;
+.launcher__chip:hover,
+.launcher__chip[aria-expanded='true'] {
+  color: var(--ink);
+  background: var(--rule);
+}
+
+.launcher__chip b {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The method menu hangs from the launcher's left edge, so it never runs off a phone screen. */
+.launcher {
+  position: relative;
+}
+
+.launcher .menu {
+  position: static;
+}
+
+.menu__panel--left {
+  left: 0;
+  right: auto;
+  max-width: 100%;
+  scroll-margin-bottom: calc(var(--tabbar) + var(--safe-bottom) + 16px);
 }
 
 @media (min-width: 640px) {
-  .deck-hero__actions > .btn,
-  .deck-hero__actions:has(> .btn + .btn) > .btn--primary {
-    flex: 0 0 auto;
+  .launcher__go {
+    width: auto;
+    min-width: 340px;
+    align-self: flex-start;
   }
 }
 
@@ -1467,20 +1554,6 @@ a.deck-tile:hover {
 
 .box-dots i.is-on {
   background: var(--ink);
-}
-
-.fab {
-  position: fixed;
-  z-index: 25;
-  right: calc(var(--gutter-r) + 4px);
-  bottom: calc(var(--tabbar) + var(--safe-bottom) + 18px);
-  width: 56px;
-  height: 56px;
-  place-items: center;
-  border-radius: 18px;
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: var(--shadow);
 }
 
 .empty {
@@ -2355,24 +2428,216 @@ a.deck-tile:hover {
 .quiz-result__text.is-right { color: var(--r3); }
 .quiz-result__text.is-wrong { color: var(--r1); }
 
+/* Six methods don't fit next to the deck name on a phone: the row scrolls sideways. */
+.study__methods {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.study__methods::-webkit-scrollbar {
+  display: none;
+}
+
+.study__methods button {
+  flex: none;
+}
+
+.quiz-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 2px 4px;
+}
+
+.quiz-card__body--listen {
+  align-items: center;
+  text-align: center;
+  min-height: 150px;
+}
+
+.listen-btn {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--hl);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s var(--ease);
+}
+
+.listen-btn:active {
+  transform: scale(0.94);
+}
+
+.listen-btn.is-active {
+  animation: listen-pulse 1s var(--ease) infinite;
+}
+
+@keyframes listen-pulse {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.cloze {
+  font-family: var(--f-read);
+  font-size: 1.45rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cloze__gap {
+  display: inline-block;
+  min-width: 4.5em;
+  margin: 0 2px;
+  padding: 0 6px;
+  border-bottom: 2.5px solid var(--ink);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.cloze__gap.is-filled {
+  min-width: 0;
+  border-bottom-color: transparent;
+  border-radius: 6px;
+  background: var(--hl);
+  font-weight: 600;
+}
+
+.cloze__hint {
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+.cloze__hint span {
+  margin-right: 6px;
+  font-family: var(--f-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.quiz-card__claim {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.quiz-card__claim .card-a.is-false {
+  text-decoration: line-through;
+  text-decoration-color: var(--r1);
+  text-decoration-thickness: 2px;
+  color: var(--ink-2);
+}
+
+.quiz-options--tf {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quiz-options--tf .quiz-option {
+  justify-content: center;
+  padding: 12px 16px;
+  min-height: 64px;
+  font-family: var(--f-ui);
+  font-weight: 650;
+}
+
+.quiz-options--tf .quiz-option kbd {
+  position: absolute;
+  left: 12px;
+}
+
+.quiz-option.tf-no { color: var(--r1); }
+.quiz-option.tf-yes { color: var(--r3); }
+
+.pairs__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 24px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.pairs__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pairs__col {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.pair-tile {
+  display: flex;
+  align-items: center;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  overflow-wrap: anywhere;
+  transition: transform 0.15s var(--ease), background 0.2s, box-shadow 0.2s, opacity 0.3s;
+}
+
+.pair-tile--a {
+  font-family: var(--f-read);
+  font-weight: 500;
+  font-size: 1.02rem;
+}
+
+.pair-tile:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.pair-tile.is-selected {
+  background: color-mix(in srgb, var(--hl) 45%, var(--surface));
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.pair-tile.is-wrong {
+  background: color-mix(in srgb, var(--r1) 10%, var(--surface));
+  box-shadow: inset 0 0 0 2px var(--r1);
+  animation: pair-shake 0.35s;
+}
+
+.pair-tile.is-matched {
+  background: color-mix(in srgb, var(--r3) 12%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px var(--r3);
+  opacity: 0.55;
+}
+
+@keyframes pair-shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 .panel__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.btn__count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  font-family: var(--f-mono);
-  font-size: 0.72rem;
-  background: var(--tint);
-  color: var(--ink-2);
 }
 
 .only-pointer {
