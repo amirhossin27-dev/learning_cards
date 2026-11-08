@@ -1,8 +1,9 @@
+import { Target } from 'lucide-react';
 import { useMemo } from 'react';
 import { useToday } from '../hooks/useToday';
 import { href } from '../lib/router';
 import { addDays, dayKey, endOfDay, isNew, startOfDay } from '../lib/srs';
-import { deckStats, useAppData } from '../lib/store';
+import { deckStats, HARD_ROUND, hardCards, useAppData } from '../lib/store';
 import type { Card } from '../types';
 import { BoxBar } from './BoxBar';
 import { Heatmap } from './Heatmap';
@@ -36,14 +37,8 @@ export function StatsPage() {
   const all = deckStats(cards, now);
   const days = useMemo(() => forecast(cards, now), [cards, now]);
   const max = Math.max(1, ...days.map((d) => d.count));
-  const hardest = useMemo(
-    () =>
-      cards
-        .filter((c) => (c.lapses ?? 0) > 0)
-        .sort((a, b) => (b.lapses ?? 0) - (a.lapses ?? 0) || (a.ease ?? 2.5) - (b.ease ?? 2.5))
-        .slice(0, 8),
-    [cards],
-  );
+  const hard = useMemo(() => hardCards(cards), [cards]);
+  const hardest = hard.slice(0, 8);
 
   return (
     <div className="page stats">
@@ -125,9 +120,16 @@ export function StatsPage() {
         </section>
 
         <section className="panel panel--wide">
-          <h2 className="panel__title">Schwierigste Karten</h2>
+          <div className="panel__head">
+            <h2 className="panel__title">Schwierigste Karten</h2>
+            {hard.length > 0 && (
+              <a className="btn btn--secondary btn--sm" href={href({ name: 'study', mode: 'hard' })}>
+                <Target size={16} /> {Math.min(hard.length, HARD_ROUND)} üben
+              </a>
+            )}
+          </div>
           {hardest.length === 0 ? (
-            <p className="panel__note">Noch keine. Hier landen Karten, die du schon einmal konntest und danach wieder vergessen hast.</p>
+            <p className="panel__note">Noch keine. Hier landen Karten, die du zuletzt falsch beantwortet oder nach dem Lernen wieder vergessen hast.</p>
           ) : (
             <ul className="hard-list">
               {hardest.map((c) => (
@@ -136,7 +138,7 @@ export function StatsPage() {
                     <strong>{c.front}</strong>
                     <span>{c.back}</span>
                   </a>
-                  <em>{c.lapses}× vergessen</em>
+                  <em>{(c.lapses ?? 0) > 0 ? `${c.lapses}× vergessen` : 'zuletzt falsch'}</em>
                 </li>
               ))}
             </ul>

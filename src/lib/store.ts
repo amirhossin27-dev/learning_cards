@@ -28,6 +28,7 @@ export const defaultSettings: Settings = {
   sessionSize: 20,
   dailyGoal: 20,
   newPerDay: 20,
+  methods: {},
 };
 
 function cardFromSeed(deckId: string, seed: SeedCard, now: number): Card {
@@ -171,7 +172,7 @@ function clean<T extends object>(input: T): T {
   return out as T;
 }
 
-const NO_PROGRESS = { box: 0, interval: undefined, ease: undefined, due: undefined, reps: undefined, lapses: undefined, lastReviewed: undefined };
+const NO_PROGRESS = { box: 0, interval: undefined, ease: undefined, due: undefined, reps: undefined, lapses: undefined, lastReviewed: undefined, lastRating: undefined };
 
 /** Records one answer in the study log. */
 export function logAnswer(history: Record<string, DayLog>, now: number, firstTime: boolean): Record<string, DayLog> {
@@ -238,7 +239,7 @@ export const actions = {
       return {
         ...s,
         history: logAnswer(s.history, now, !practice && isNew(card)),
-        cards: practice ? s.cards : s.cards.map((c) => (c.id === id ? { ...c, ...schedule(c, rating, now) } : c)),
+        cards: s.cards.map((c) => (c.id === id ? { ...c, ...(practice ? {} : schedule(c, rating, now)), lastRating: rating } : c)),
       };
     });
   },
@@ -327,6 +328,24 @@ export function buildPractice(cards: Card[], size: number): Card[] {
   const shuffled = shuffle(cards);
   shuffled.sort((a, b) => a.box - b.box || (a.lastReviewed ?? 0) - (b.lastReviewed ?? 0));
   return size > 0 ? shuffled.slice(0, size) : shuffled;
+}
+
+/** How many cards a round of difficult cards holds at most. */
+export const HARD_ROUND = 20;
+
+/**
+ * Cards worth extra practice: answered wrong last time, or forgotten after
+ * they were learned. Wrong last time comes first, then the most forgotten.
+ */
+export function hardCards(cards: Card[]): Card[] {
+  return cards
+    .filter((c) => !isNew(c) && (c.lastRating === 1 || (c.lapses ?? 0) > 0))
+    .sort(
+      (a, b) =>
+        Number(b.lastRating === 1) - Number(a.lastRating === 1) ||
+        (b.lapses ?? 0) - (a.lapses ?? 0) ||
+        (a.ease ?? 2.5) - (b.ease ?? 2.5),
+    );
 }
 
 export function shuffle<T>(items: T[]): T[] {
