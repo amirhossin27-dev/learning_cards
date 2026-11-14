@@ -6,6 +6,7 @@ import { englishGrammarDeck } from './decks/english-grammar';
 import { financeDeck } from './decks/finance';
 import { geographyDeck } from './decks/geography';
 import { historyDeck } from './decks/history';
+import { idiomsDeck } from './decks/idioms';
 import { myVocabDeck } from './decks/my-vocab';
 import { programmingDeck } from './decks/programming';
 import { pythonDeck } from './decks/python';
@@ -40,4 +41,5 @@ export const builtInDecks: SeedDeck[] = [
   biasesDeck,
   spaceDeck,
   financeDeck,
+  idiomsDeck,
 ];
