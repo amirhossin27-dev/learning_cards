@@ -13,6 +13,9 @@ const PYTHON = 'Python';
 const GIT = 'Git im Alltag';
 const JS = 'JavaScript';
 const TESTING = 'Testen';
+const FORMATS = 'Datenformate';
+const SORTING = 'Sortieren & Suchen';
+const CLEAN = 'Clean Code';
 
 // The first release.
 const classics = [
@@ -150,6 +153,35 @@ const testing = group(TESTING, [
   { front: 'Was ist Testabdeckung (Code Coverage)?', back: 'Der Anteil des Codes, der beim Ausführen der Tests durchlaufen wird, meist in Prozent.', note: 'Hohe Abdeckung heißt nicht automatisch gute Tests.' },
 ]);
 
+const formats = group(FORMATS, [
+  { front: 'Was ist YAML?', back: 'Ein gut lesbares Textformat, vor allem für Konfigurationsdateien. Die Struktur ergibt sich aus der Einrückung.', note: 'Verwendet z. B. von Docker Compose, Kubernetes und GitHub Actions. Tabs sind zum Einrücken nicht erlaubt.' },
+  { front: 'Was ist CSV?', back: 'Comma-Separated Values: eine Tabelle als Text, eine Zeile pro Datensatz, die Werte durch Kommas getrennt.', note: 'In Deutschland ist oft das Semikolon das Trennzeichen, weil das Komma für Dezimalzahlen gebraucht wird.' },
+  { front: 'Was ist XML?', back: 'Eine Auszeichnungssprache, die Daten mit selbst gewählten Tags beschreibt, z. B. <name>Anna</name>.', note: 'Ausführlicher als JSON, aber z. B. in Office-Dateien und vielen Firmenschnittstellen verbreitet.' },
+  { front: 'Was ist Markdown?', back: 'Eine einfache Formatierungssprache für Text: # für Überschriften, **fett**, - für Listenpunkte.', note: 'README-Dateien auf GitHub sind meist in Markdown geschrieben.' },
+  { front: 'Was ist UTF-8?', back: 'Die verbreitetste Zeichenkodierung. Sie kann alle Unicode-Zeichen darstellen, von Umlauten bis zu Emojis.', note: 'Kaputte Umlaute wie „Ã¤“ statt „ä“ deuten auf eine falsche Kodierung hin.' },
+  { front: 'Was ist Serialisierung?', back: 'Daten aus einem Programm in ein speicher- oder übertragbares Format umwandeln, z. B. ein Objekt in JSON.', note: 'Der Rückweg heißt Deserialisierung.' },
+]);
+
+const sorting = group(SORTING, [
+  { front: 'Was ist lineare Suche?', back: 'Man prüft jedes Element der Reihe nach, bis man das gesuchte findet. Aufwand: O(n).' },
+  { front: 'Was ist binäre Suche?', back: 'Suche in einer sortierten Liste: Man prüft das mittlere Element und sucht dann nur in der passenden Hälfte weiter. Aufwand: O(log n).', note: 'Bei einer Million Einträgen reichen höchstens 20 Schritte.' },
+  { front: 'Was bedeutet O(log n)?', back: 'Der Aufwand wächst nur sehr langsam: Verdoppelt sich die Datenmenge, kommt nur ein Schritt dazu.', note: 'Typisch für binäre Suche.' },
+  { front: 'Wie funktioniert Bubble Sort?', back: 'Benachbarte Elemente werden immer wieder verglichen und vertauscht, bis alles sortiert ist. Einfach, aber langsam: O(n²).' },
+  { front: 'Wie funktioniert Merge Sort?', back: 'Die Liste wird so lange halbiert, bis nur einzelne Elemente übrig sind. Diese werden dann sortiert zusammengeführt. Aufwand: O(n log n).', note: 'Ein Beispiel für das Prinzip „Teile und herrsche“.' },
+  { front: 'Wie funktioniert Quicksort?', back: 'Man wählt ein Pivot-Element, legt kleinere Elemente links und größere rechts davon ab und sortiert beide Seiten genauso weiter. Im Schnitt O(n log n).', note: 'Im ungünstigsten Fall O(n²).' },
+  { front: 'Was ist ein stabiles Sortierverfahren?', back: 'Eines, bei dem gleich große Elemente ihre ursprüngliche Reihenfolge behalten.', note: 'Wichtig, wenn man nacheinander nach mehreren Kriterien sortiert. Merge Sort ist stabil, Quicksort meist nicht.' },
+]);
+
+const cleanCode = group(CLEAN, [
+  { front: 'Was bedeutet KISS?', back: 'Keep it simple, stupid: Lösungen so einfach wie möglich halten.' },
+  { front: 'Was bedeutet YAGNI?', back: "You aren't gonna need it: nichts auf Vorrat einbauen, was (noch) niemand braucht." },
+  { front: 'Was sind sprechende Namen?', back: 'Namen, die sagen, was etwas ist oder tut: anzahlKunden statt x, berechneSumme() statt calc().' },
+  { front: 'Wofür steht SOLID?', back: 'Für fünf Prinzipien guten objektorientierten Designs: Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation, Dependency Inversion.' },
+  { front: 'Was ist das Single-Responsibility-Prinzip?', back: 'Das S in SOLID: Eine Klasse oder Funktion hat genau eine Aufgabe – und damit nur einen Grund, sich zu ändern.' },
+  { front: 'Was ist das Open-Closed-Prinzip?', back: 'Das O in SOLID: Code soll offen für Erweiterungen, aber geschlossen für Änderungen sein. Neues kommt hinzu, ohne Bestehendes umzuschreiben.' },
+  { front: 'Was ist ein Code-Review?', back: 'Andere lesen den Code gegen, bevor er übernommen wird, um Fehler zu finden und Wissen zu teilen.', note: 'Auf GitHub geschieht das meist im Pull Request.' },
+]);
+
 export const programmingDeck: SeedDeck = {
   id: 'programming',
   name: 'Programmieren Basics',
@@ -164,5 +196,6 @@ export const programmingDeck: SeedDeck = {
     ...added('2026-10-25', [...basics, ...concepts, ...data, ...web, ...tools, ...security]),
     ...added('2026-10-31', [...shell, ...structures, ...python]),
     ...added('2026-11-07', [...git, ...javascript, ...testing]),
+    ...added('2026-11-14', [...formats, ...sorting, ...cleanCode]),
   ],
 };
