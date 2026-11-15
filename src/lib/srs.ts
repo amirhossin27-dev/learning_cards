@@ -5,8 +5,8 @@ import type { Card } from '../types';
  *
  * Cards with interval 0 are "learning" (new or forgotten). "Gut" moves them to
  * a one-day interval, after that each "Gut" multiplies the interval by the
- * card's ease. The interval also decides the Leitner box ("Fach") shown in
- * the UI, so the five boxes stay meaningful without a separate counter.
+ * card's ease. The interval also decides the card's box (0–4), and the box
+ * its stage in the UI: new, still learning, or sitting (see `stageOf`).
  */
 
 export type Rating = 1 | 2 | 3 | 4;
@@ -27,7 +27,25 @@ export const BOX_COUNT = 5;
 export const MASTERED_BOX = 4;
 /** Minimum interval in days for each box. */
 const BOX_THRESHOLDS = [0, 1, 3, 7, 21];
-export const BOX_LABELS = ['Fach 1', 'Fach 2', 'Fach 3', 'Fach 4', 'Gemeistert'];
+
+/**
+ * What the UI shows instead of five numbered boxes: never studied, still
+ * coming back within days, or sitting (next review a week or more away).
+ */
+export type Stage = 'solid' | 'learning' | 'new';
+/** From this box on (interval of 7 days or more) a card "sitzt". */
+export const SOLID_BOX = 3;
+
+export const STAGES: { value: Stage; label: string; hint: string }[] = [
+  { value: 'solid', label: 'Sitzt', hint: 'Mehrmals gewusst, kommt nur noch selten' },
+  { value: 'learning', label: 'Am Lernen', hint: 'Kommt in den nächsten Tagen wieder' },
+  { value: 'new', label: 'Neu', hint: 'Noch nie gelernt' },
+];
+
+export function stageOf(card: Pick<Card, 'lastReviewed' | 'box'>): Stage {
+  if (isNew(card)) return 'new';
+  return card.box >= SOLID_BOX ? 'solid' : 'learning';
+}
 
 export function boxForInterval(days: number): number {
   let box = 0;

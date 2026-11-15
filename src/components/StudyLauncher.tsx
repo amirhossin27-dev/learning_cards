@@ -1,14 +1,14 @@
-import { Check, ChevronDown, ChevronRight, Dumbbell, Headphones, Layers, ListChecks, Play, Shapes, Target, TextCursorInput, ThumbsUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Layers, ListChecks, Play, Shapes, Target, TextCursorInput, ThumbsUp } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { closestMethod } from '../lib/questions';
 import { href, type Route } from '../lib/router';
-import { METHODS, type StudyMethod } from '../lib/quiz';
+import { METHODS, savedMethod, type StudyMethod } from '../lib/quiz';
 import { actions, getState, useAppData } from '../lib/store';
 
 export const METHOD_ICONS: Record<StudyMethod, typeof Layers> = {
   flip: Layers,
   choice: ListChecks,
   cloze: TextCursorInput,
-  listen: Headphones,
   pairs: Shapes,
   truefalse: ThumbsUp,
 };
@@ -18,8 +18,8 @@ interface Props {
   route: Extract<Route, { name: 'study' }> | null;
   title: string;
   subtitle: string;
-  /** Whether the big button itself is already free practice (then its chip is left out). */
-  isPractice?: boolean;
+  /** Whether there are cards at all; the chips stay even when nothing is due. */
+  hasCards: boolean;
   /** The study route without a mode, for the chips. */
   scope: Extract<Route, { name: 'study' }>;
   /** Number of difficult cards in this scope. */
@@ -32,10 +32,10 @@ interface Props {
 }
 
 /**
- * One big button that starts whatever is due (or new cards, or free practice
- * when everything is done), with quieter chips for the other ways to learn.
+ * One big button that starts whatever is due (or new cards when everything is
+ * done), with quieter chips for the other ways to learn.
  */
-export function StudyLauncher({ route, title, subtitle, isPractice, scope, hard, methods, methodKey, children }: Props) {
+export function StudyLauncher({ route, title, subtitle, hasCards, scope, hard, methods, methodKey, children }: Props) {
   return (
     <div className="launcher">
       {route ? (
@@ -56,19 +56,14 @@ export function StudyLauncher({ route, title, subtitle, isPractice, scope, hard,
           </span>
         </span>
       )}
-      {(route || children) && (
+      {(hasCards || children) && (
         <div className="launcher__chips">
-          {route && !isPractice && (
-            <a className="launcher__chip" href={href({ ...scope, mode: 'extra' })}>
-              <Dumbbell size={15} /> Freies Üben
-            </a>
-          )}
-          {route && hard > 0 && (
+          {hasCards && hard > 0 && (
             <a className="launcher__chip" href={href({ ...scope, mode: 'hard' })}>
               <Target size={15} /> Schwierige <b>{hard}</b>
             </a>
           )}
-          {route && <MethodChip methods={methods} methodKey={methodKey} />}
+          {hasCards && <MethodChip methods={methods} methodKey={methodKey} />}
           {children}
         </div>
       )}
@@ -81,8 +76,8 @@ function MethodChip({ methods, methodKey }: { methods: StudyMethod[]; methodKey:
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const saved = useAppData().settings.methods?.[methodKey];
-  const current: StudyMethod = saved && methods.includes(saved) ? saved : 'flip';
+  const saved = savedMethod(useAppData().settings.methods?.[methodKey]);
+  const current: StudyMethod = closestMethod(methods, saved ?? 'flip');
   const Icon = METHOD_ICONS[current];
 
   useEffect(() => {

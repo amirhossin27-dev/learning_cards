@@ -5,7 +5,7 @@ import { href } from '../lib/router';
 import { addDays, dayKey, endOfDay, isNew, startOfDay } from '../lib/srs';
 import { deckStats, HARD_ROUND, hardCards, useAppData } from '../lib/store';
 import type { Card } from '../types';
-import { BoxBar } from './BoxBar';
+import { StageBar } from './StageBar';
 import { Heatmap } from './Heatmap';
 
 const WEEKDAY = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
@@ -66,8 +66,8 @@ export function StatsPage() {
           <small>Antworten</small>
         </div>
         <div className="stat-tile">
-          <span>Gemeistert</span>
-          <strong>{all.mastered}</strong>
+          <span>Sitzen</span>
+          <strong>{all.solid}</strong>
           <small>von {all.total} Karten</small>
         </div>
       </div>
@@ -108,15 +108,15 @@ export function StatsPage() {
                     <i className="marker-tab" aria-hidden="true" />
                     <strong>{d.name}</strong>
                     <span>
-                      {s.mastered} von {s.total} gemeistert
+                      {s.solid} von {s.total} sitzen
                     </span>
                   </a>
-                  <BoxBar boxes={s.boxes} size="md" />
+                  <StageBar stats={s} size="md" />
                 </li>
               );
             })}
           </ul>
-          <BoxBar boxes={all.boxes} legend size="md" />
+          <StageBar stats={all} legend size="md" />
         </section>
 
         <section className="panel panel--wide">

@@ -7,10 +7,10 @@ import { href, navigate } from '../lib/router';
 import { resolveLang, useSpeech } from '../lib/speech';
 import { useNow } from '../hooks/useToday';
 import { DeckIcon } from '../lib/deckIcons';
-import { BOX_COUNT, BOX_LABELS, DAY, endOfDay, isDue, isNew } from '../lib/srs';
+import { DAY, endOfDay, isDue, isNew, stageOf, STAGES } from '../lib/srs';
 import { actions, deckStats, HARD_ROUND, hardCards, minutesFor, newCardsLeft, planToday, useAppData } from '../lib/store';
 import type { Card } from '../types';
-import { BoxBar } from './BoxBar';
+import { solidText, StageBar } from './StageBar';
 import { CardEditor } from './CardEditor';
 import { DeckEditor } from './DeckEditor';
 import { ImportDialog } from './ImportDialog';
@@ -26,14 +26,9 @@ type Dialog =
   | { kind: 'confirm'; title: string; text: string; action: () => void; danger?: boolean }
   | null;
 
-function BoxDots({ box }: { box: number }) {
-  return (
-    <span className="box-dots" title={BOX_LABELS[box]} aria-label={BOX_LABELS[box]}>
-      {Array.from({ length: BOX_COUNT }, (_, i) => (
-        <i key={i} className={i <= box ? 'is-on' : ''} />
-      ))}
-    </span>
-  );
+function StageDot({ card }: { card: Card }) {
+  const stage = STAGES.find((s) => s.value === stageOf(card))!;
+  return <span className={`stage-dot is-${stage.value}`} title={stage.label} aria-label={stage.label} />;
 }
 
 function dueLabel(card: Card, now: number): string {
@@ -91,9 +86,9 @@ export function DeckPage({ deckId }: { deckId: string }) {
   const tagNew = tagCards.filter(isNew).length;
   const scope = { name: 'study', id: deck.id, tag: tag ?? undefined } as const;
   const hard = Math.min(hardCards(tagCards).length, HARD_ROUND);
-  const methods = availableMethods(tagCards, decks, supported);
+  const methods = availableMethods(tagCards);
   const what = tag ? `${tag} lernen` : 'Weiterlernen';
-  // The big button: what is due, else new cards beyond today's budget, else free practice.
+  // The big button: what is due, else new cards beyond today's budget, else nothing until tomorrow.
   const launch =
     tagCards.length === 0
       ? { route: null, title: what, subtitle: 'Leg zuerst ein paar Karten an' }
@@ -109,12 +104,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
               title: 'Neue Karten lernen',
               subtitle: `Für heute erledigt · ${tagNew} neue ${tagNew === 1 ? 'Karte wartet' : 'Karten warten'}`,
             }
-          : {
-              route: { ...scope, mode: 'extra' as const },
-              title: 'Frei üben',
-              subtitle: 'Für heute erledigt · verschiebt keine Termine',
-              isPractice: true,
-            };
+          : { route: null, title: 'Für heute erledigt', subtitle: 'Alle Karten sind gelernt · morgen geht es weiter' };
 
   const exportDeck = () => {
     setMenuOpen(false);
@@ -196,22 +186,14 @@ export function DeckPage({ deckId }: { deckId: string }) {
             {deck.description && <p>{deck.description}</p>}
           </div>
         </div>
-        <dl className="deck-hero__stats">
-          <div>
-            <dt>Heute dran</dt>
-            <dd>{todayCount}</dd>
-          </div>
-          <div>
-            <dt>Neu</dt>
-            <dd>{stats.fresh}</dd>
-          </div>
-          <div>
-            <dt>Gemeistert</dt>
-            <dd>{stats.mastered}</dd>
-          </div>
-        </dl>
-        <BoxBar boxes={stats.boxes} legend size="md" />
-        <StudyLauncher {...launch} scope={scope} hard={hard} methods={methods} methodKey={deck.id} />
+        <div className="deck-hero__progress">
+          <p className="stagebar__head">
+            <strong>{solidText(stats)}</strong>
+            {stats.total > 0 && <span>{Math.round((stats.solid / stats.total) * 100)} %</span>}
+          </p>
+          <StageBar stats={stats} legend size="md" />
+        </div>
+        <StudyLauncher {...launch} hasCards={tagCards.length > 0} scope={scope} hard={hard} methods={methods} methodKey={deck.id} />
       </section>
 
       <section>
@@ -268,7 +250,7 @@ export function DeckPage({ deckId }: { deckId: string }) {
                 <div className="card-row__meta">
                   {c.tag && !tag && <span className="chip chip--sm hide-mobile">{c.tag}</span>}
                   <span className={`card-row__due ${isDue(c, now) ? 'is-due' : ''}`}>{dueLabel(c, now)}</span>
-                  <BoxDots box={c.box} />
+                  <StageDot card={c} />
                   {supported && (
                     <SpeakButton
                       small

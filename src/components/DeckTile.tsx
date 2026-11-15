@@ -2,7 +2,7 @@ import { DeckIcon } from '../lib/deckIcons';
 import { href } from '../lib/router';
 import type { DeckStats } from '../lib/store';
 import type { Deck } from '../types';
-import { BoxBar } from './BoxBar';
+import { StageBar } from './StageBar';
 
 interface Props {
   deck: Deck;
@@ -30,7 +30,7 @@ export function DeckTile({ deck, stats, today, compact }: Props) {
         )}
       </div>
       {!compact && <p>{deck.description}</p>}
-      <BoxBar boxes={stats.boxes} />
+      <StageBar stats={stats} />
       {!compact && (
         <div className="deck-tile__foot">
           <span>

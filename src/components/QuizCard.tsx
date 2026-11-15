@@ -1,4 +1,4 @@
-import { Check, Volume2, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { Question } from '../lib/questions';
 import type { Rating } from '../lib/srs';
@@ -40,11 +40,10 @@ function sizeClass(text: string) {
 const RESULT_TEXT: Record<Question['kind'], [string, string]> = {
   choice: ['Richtig', 'Leider falsch'],
   cloze: ['Richtig', 'Leider falsch'],
-  listen: ['Richtig verstanden', 'Leider falsch'],
   truefalse: ['Richtig erkannt', 'Leider daneben'],
 };
 
-/** A question with a few answers to tap: multiple choice, gap in a sentence, listening, or true or false. */
+/** A question with a few answers to tap: multiple choice, gap in a sentence, or true or false. */
 export function QuizCard(props: Props) {
   const { q, question, answer, example, note, tag, meaning, result, leaving, onPick, onContinue, speak, speakingKey, speechSupported } = props;
   const next = useRef<HTMLButtonElement>(null);
@@ -62,11 +61,8 @@ export function QuizCard(props: Props) {
     <div className={`quiz quiz--${q.kind} ${leaving ? 'is-leaving' : ''}`}>
       <div className={`quiz-card ${result ? (result.correct ? 'is-right' : 'is-wrong') : ''}`}>
         <div className="flip-face__top">
-          <span className="quiz-card__chips">
-            {tag && <span className="chip chip--sm">{tag}</span>}
-            {q.fallback && <span className="chip chip--sm">{q.fallback}</span>}
-          </span>
-          {speechSupported && q.kind !== 'listen' && q.kind !== 'cloze' && (
+          <span className="quiz-card__chips">{tag && <span className="chip chip--sm">{tag}</span>}</span>
+          {speechSupported && q.kind !== 'cloze' && (
             <SpeakButton active={speakingKey === 'q'} onSpeak={speakQuestion} label="Frage vorlesen" />
           )}
         </div>
@@ -90,13 +86,6 @@ export function QuizCard(props: Props) {
                 <SpeakButton small active={speakingKey === 'e'} onSpeak={() => speak(example.text, example.lang, 'e')} label="Satz vorlesen" />
               </div>
             )}
-          </div>
-        ) : q.kind === 'listen' && !result ? (
-          <div className="quiz-card__body quiz-card__body--listen">
-            <button type="button" className={`listen-btn ${speakingKey === 'q' ? 'is-active' : ''}`} onClick={speakQuestion} aria-label="Nochmal anhören">
-              <Volume2 size={34} />
-            </button>
-            <p className="card-meta">Was bedeutet das, was du hörst?</p>
           </div>
         ) : (
           <p className={`card-q quiz-card__q ${sizeClass(question.text)}`}>{question.text}</p>

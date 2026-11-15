@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Card, Deck } from '../types';
-import { availableMethods, buildQuestion, pairChunk, type StudyItem } from './questions';
+import { availableMethods, buildQuestion, cardMethods, methodFor, pairChunk, type StudyItem } from './questions';
 
 const deck = (id: string, frontLang: Deck['frontLang'], backLang: Deck['backLang']): Deck => ({
   id,
@@ -50,12 +50,6 @@ describe('buildQuestion', () => {
   it('falls back to multiple choice without a matching example', () => {
     const q = buildQuestion(item(cards[4]), 'cloze', data, fixed);
     expect(q?.kind).toBe('choice');
-    expect(q?.fallback).toBeTruthy();
-  });
-
-  it('only listens on language decks', () => {
-    expect(buildQuestion(item(cards[0]), 'listen', data, fixed)?.kind).toBe('listen');
-    expect(buildQuestion(item(cards[5]), 'listen', data, fixed)?.kind).toBe('choice');
   });
 
   it('shows either the right answer or a wrong one for true or false', () => {
@@ -82,9 +76,35 @@ describe('pairChunk', () => {
 });
 
 describe('availableMethods', () => {
-  it('offers gaps, listening and pairs only where they work', () => {
-    expect(availableMethods(cards, decks, true)).toEqual(['flip', 'choice', 'cloze', 'listen', 'pairs', 'truefalse']);
-    expect(availableMethods(cards.slice(5), decks, true)).toEqual(['flip', 'choice', 'pairs', 'truefalse']);
-    expect(availableMethods(cards, decks, false)).not.toContain('listen');
+  it('offers gaps and pairs only where they work', () => {
+    expect(availableMethods(cards)).toEqual(['flip', 'choice', 'cloze', 'pairs', 'truefalse']);
+    expect(availableMethods(cards.slice(5))).toEqual(['flip', 'choice', 'pairs', 'truefalse']);
+  });
+
+  it('leaves out methods switched off on the cards', () => {
+    const off = cards.map((c) => ({ ...c, methods: ['flip' as const, 'choice' as const] }));
+    expect(availableMethods(off)).toEqual(['flip', 'choice']);
+  });
+});
+
+describe('cardMethods', () => {
+  it('only lists the methods that fit the card', () => {
+    expect(cardMethods(cards[0])).toEqual(['flip', 'choice', 'cloze', 'pairs', 'truefalse']);
+    // A capital has no sentence, so no gap.
+    expect(cardMethods(cards[5])).toEqual(['flip', 'choice', 'pairs', 'truefalse']);
+  });
+
+  it('respects the ticks from the card editor and keeps at least the flip card', () => {
+    expect(cardMethods({ ...cards[0], methods: ['cloze', 'truefalse'] })).toEqual(['cloze', 'truefalse']);
+    expect(cardMethods({ ...cards[5], methods: ['cloze'] })).toEqual(['flip']);
+  });
+});
+
+describe('methodFor', () => {
+  it('uses the chosen method when the card has it, else the closest one', () => {
+    expect(methodFor(cards[0], 'cloze')).toBe('cloze');
+    expect(methodFor(cards[5], 'cloze')).toBe('choice');
+    expect(methodFor({ ...cards[5], methods: ['flip', 'truefalse'] }, 'choice')).toBe('truefalse');
+    expect(methodFor({ ...cards[0], methods: ['choice'] }, 'flip')).toBe('choice');
   });
 });

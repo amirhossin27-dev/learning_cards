@@ -1,9 +1,14 @@
-import { Trash2 } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { fitsCard } from '../lib/questions';
+import { METHODS, PAIR_MAX_LENGTH, type StudyMethod } from '../lib/quiz';
 import { actions, type CardInput } from '../lib/store';
 import type { Card } from '../types';
 import { Modal } from './Modal';
+import { METHOD_ICONS } from './StudyLauncher';
 import { toast } from './Toast';
+
+const ALL_METHODS = METHODS.map((m) => m.value);
 
 interface Props {
   deckId: string;
@@ -20,16 +25,24 @@ export function CardEditor({ deckId, card, tags, onClose }: Props) {
     note: card?.note ?? '',
     tag: card?.tag ?? '',
   });
-  const valid = form.front.trim() !== '' && form.back.trim() !== '';
+  // Ticked methods; the ones that don't fit the card right now are hidden but keep their tick.
+  const [ticked, setTicked] = useState<StudyMethod[]>(card?.methods ?? ALL_METHODS);
+  const draft = { front: form.front.trim(), back: form.back.trim(), example: form.example?.trim() };
+  const fitting = ALL_METHODS.filter((m) => fitsCard(draft, m));
+  const shown = fitting.filter((m) => ticked.includes(m));
+  const valid = form.front.trim() !== '' && form.back.trim() !== '' && shown.length > 0;
+  const toggle = (m: StudyMethod) => setTicked((t) => (t.includes(m) ? t.filter((x) => x !== m) : [...t, m]));
+  // Everything ticked is stored as "no choice", so methods added later are on for the card too.
+  const methods = ALL_METHODS.every((m) => ticked.includes(m)) ? undefined : ALL_METHODS.filter((m) => ticked.includes(m));
   const set = (key: keyof CardInput) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const save = (another: boolean) => {
     if (!valid) return;
     if (card) {
-      actions.updateCard(card.id, form);
+      actions.updateCard(card.id, { ...form, methods });
       toast('Karte gespeichert');
     } else {
-      actions.addCard(deckId, form);
+      actions.addCard(deckId, { ...form, methods });
       toast('Karte hinzugefügt');
     }
     if (another) setForm((f) => ({ front: '', back: '', example: '', note: '', tag: f.tag }));
@@ -103,6 +116,37 @@ export function CardEditor({ deckId, card, tags, onClose }: Props) {
             ))}
           </datalist>
         </label>
+        <fieldset className="field method-picks">
+          <legend>So wird die Karte abgefragt</legend>
+          <div className="method-picks__list">
+            {METHODS.filter((m) => fitting.includes(m.value)).map(({ value, label }) => {
+              const Icon = METHOD_ICONS[value];
+              const on = ticked.includes(value);
+              // The last ticked method can't be switched off, a card needs at least one.
+              const last = on && shown.length === 1;
+              return (
+                <label key={value} className={`method-pick ${on ? 'is-on' : ''} ${last ? 'is-last' : ''}`}>
+                  <input type="checkbox" checked={on} disabled={last} onChange={() => toggle(value)} />
+                  <Icon size={16} />
+                  <span>{label}</span>
+                  <i className="method-pick__box" aria-hidden="true">
+                    {on && <Check size={13} strokeWidth={3} />}
+                  </i>
+                </label>
+              );
+            })}
+          </div>
+          {(!fitting.includes('cloze') || !fitting.includes('pairs')) && (
+            <small className="method-picks__hint">
+              {[
+                !fitting.includes('cloze') && 'Lückentext gibt es, sobald der Beispielsatz das Wort der Vorderseite enthält.',
+                !fitting.includes('pairs') && `Paare gibt es nur für kurze Karten (bis ${PAIR_MAX_LENGTH} Zeichen pro Seite).`,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            </small>
+          )}
+        </fieldset>
         <button type="submit" hidden />
       </form>
     </Modal>

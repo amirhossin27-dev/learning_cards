@@ -1,10 +1,11 @@
 import type { Card, Deck } from '../types';
-import { bareTerm, findCloze, normalize, PAIR_COUNT, PAIR_MAX_LENGTH, pickDistractors, type Candidate, type Cloze, type StudyMethod } from './quiz';
+import { bareTerm, findCloze, METHODS, normalize, PAIR_COUNT, PAIR_MAX_LENGTH, pickDistractors, type Candidate, type Cloze, type StudyMethod } from './quiz';
 
 /**
- * Turns a card into a question for the chosen study method. A card that
- * doesn't suit the method (no example sentence for a gap, no second language
- * to listen to) is asked as plain multiple choice instead.
+ * Turns a card into a question for the chosen study method. Each card is only
+ * asked in the ways that fit it (a gap needs an example sentence with the
+ * word in it, pairs need short texts) and that are ticked for it in the card
+ * editor; for anything else it gets the closest method it has.
  */
 
 export interface StudyItem {
@@ -16,14 +17,11 @@ export interface StudyItem {
 interface Base {
   options: string[];
   correct: number;
-  /** Shown when the card is asked differently from the chosen method. */
-  fallback?: string;
 }
 
 export type Question =
   | (Base & { kind: 'choice' })
   | (Base & { kind: 'cloze'; cloze: Cloze })
-  | (Base & { kind: 'listen' })
   | (Base & { kind: 'truefalse'; shown: string; isTrue: boolean });
 
 export interface StudyData {
@@ -64,12 +62,12 @@ function wrongAnswers(item: StudyItem, data: StudyData, count: number, random: (
   return wrong;
 }
 
-function choice(item: StudyItem, data: StudyData, random: () => number, fallback?: string): Question | null {
+function choice(item: StudyItem, data: StudyData, random: () => number): Question | null {
   const answer = side(item.card, item.reversed);
   const wrong = wrongAnswers(item, data, 3, random);
   if (wrong.length === 0) return null;
   const options = shuffled([answer, ...wrong], random);
-  return { kind: 'choice', options, correct: options.indexOf(answer), fallback };
+  return { kind: 'choice', options, correct: options.indexOf(answer) };
 }
 
 /** A gap in the example sentence, for cards whose front term appears in it. */
@@ -77,14 +75,44 @@ export function clozeFor(card: Card): Cloze | null {
   return card.example ? findCloze(card.front, card.example) : null;
 }
 
-/** Listening only makes sense for language decks, where the question side is spoken in another language. */
-export function canListen(card: Card, decks: Deck[]): boolean {
-  const deck = decks.find((d) => d.id === card.deckId);
-  return !!deck && deck.frontLang !== deck.backLang;
+/** Whether a method can work with this card at all, whatever is ticked for it. */
+export function fitsCard(card: Pick<Card, 'front' | 'back' | 'example'>, method: StudyMethod): boolean {
+  if (method === 'cloze') return !!card.example && !!findCloze(card.front, card.example);
+  if (method === 'pairs') return card.front.length <= PAIR_MAX_LENGTH && card.back.length <= PAIR_MAX_LENGTH;
+  return true;
+}
+
+/**
+ * The methods this card is asked with: those that fit it, minus the ones
+ * switched off for it. A card always keeps at least the flip card.
+ */
+export function cardMethods(card: Card): StudyMethod[] {
+  const fitting = METHODS.map((m) => m.value).filter((m) => fitsCard(card, m));
+  const chosen = card.methods ? fitting.filter((m) => card.methods!.includes(m)) : fitting;
+  return chosen.length ? chosen : ['flip'];
+}
+
+/** Where a card goes when it doesn't have the chosen method: tapping stays tapping, turning stays turning. */
+const CLOSEST: Record<StudyMethod, StudyMethod[]> = {
+  flip: ['flip', 'choice', 'truefalse', 'cloze', 'pairs'],
+  choice: ['choice', 'cloze', 'truefalse', 'flip', 'pairs'],
+  cloze: ['cloze', 'choice', 'truefalse', 'flip', 'pairs'],
+  pairs: ['pairs', 'choice', 'truefalse', 'cloze', 'flip'],
+  truefalse: ['truefalse', 'choice', 'cloze', 'flip', 'pairs'],
+};
+
+/** The chosen method if it is among `methods`, else the closest one that is. */
+export function closestMethod(methods: StudyMethod[], preferred: StudyMethod): StudyMethod {
+  return CLOSEST[preferred].find((m) => methods.includes(m)) ?? 'flip';
+}
+
+/** The method this card is asked with when `preferred` is chosen for the round. */
+export function methodFor(card: Card, preferred: StudyMethod): StudyMethod {
+  return closestMethod(cardMethods(card), preferred);
 }
 
 export function isPairable(item: StudyItem): boolean {
-  return item.card.front.length <= PAIR_MAX_LENGTH && item.card.back.length <= PAIR_MAX_LENGTH;
+  return cardMethods(item.card).includes('pairs');
 }
 
 /**
@@ -108,14 +136,16 @@ export function pairChunk(items: StudyItem[], start: number): number {
   return n;
 }
 
-/** Which methods make sense for these cards, in the order of the picker. */
-export function availableMethods(cards: Card[], decks: Deck[], speech: boolean): StudyMethod[] {
-  const out: StudyMethod[] = ['flip', 'choice'];
-  if (cards.filter((c) => clozeFor(c)).length >= 4) out.push('cloze');
-  if (speech && cards.some((c) => canListen(c, decks))) out.push('listen');
-  if (cards.filter((c) => isPairable({ card: c, reversed: false })).length >= 2) out.push('pairs');
-  out.push('truefalse');
-  return out;
+/**
+ * Which methods make sense for these cards, in the order of the picker: a
+ * gap only with a few sentences to choose from, pairs only with two cards.
+ */
+export function availableMethods(cards: Card[]): StudyMethod[] {
+  const count = new Map<StudyMethod, number>();
+  for (const c of cards) for (const m of cardMethods(c)) count.set(m, (count.get(m) ?? 0) + 1);
+  const needed: Partial<Record<StudyMethod, number>> = { cloze: 4, pairs: 2 };
+  const out = METHODS.map((m) => m.value).filter((m) => (count.get(m) ?? 0) >= (needed[m] ?? 1));
+  return out.length ? out : ['flip'];
 }
 
 /** The question for one card, or null to show the flip card. Pairs are built per round, see `pairChunk`. */
@@ -129,7 +159,7 @@ export function buildQuestion(item: StudyItem, method: StudyMethod, data: StudyD
       return choice(item, data, random);
     case 'cloze': {
       const cloze = clozeFor(card);
-      if (!cloze) return choice(item, data, random, 'Ohne passenden Beispielsatz: als Auswahl');
+      if (!cloze) return choice(item, data, random);
       const answer = bareTerm(card.front);
       const pool: Candidate[] = data.cards
         .filter((c) => c.id !== card.id && c.deckId === card.deckId)
@@ -139,11 +169,6 @@ export function buildQuestion(item: StudyItem, method: StudyMethod, data: StudyD
       if (wrong.length === 0) return choice(item, data, random);
       const options = shuffled([answer, ...wrong], random);
       return { kind: 'cloze', cloze, options, correct: options.indexOf(answer) };
-    }
-    case 'listen': {
-      if (!canListen(card, data.decks)) return choice(item, data, random, 'Kein Sprachstapel: als Auswahl');
-      const q = choice(item, data, random);
-      return q && { ...q, kind: 'listen' };
     }
     case 'truefalse': {
       const answer = side(card, item.reversed);
