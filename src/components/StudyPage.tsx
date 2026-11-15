@@ -1,25 +1,25 @@
-import { ArrowLeftRight, Check, Ellipsis, Plus, RotateCcw, Target, X } from 'lucide-react';
+import { ArrowLeftRight, Check, Ellipsis, Play, RotateCcw, Target } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCountUp } from '../hooks/useCountUp';
 import { useToday } from '../hooks/useToday';
 import { href, navigate, type StudyMode } from '../lib/router';
 import { availableMethods, buildQuestion, cardMethods, closestMethod, isPairable, methodFor, pairChunk, type Question } from '../lib/questions';
 import { autoRating, FAST_ANSWER, METHODS, savedMethod, type StudyMethod } from '../lib/quiz';
+import { playTone } from '../lib/sounds';
 import { resolveLang, useSpeech } from '../lib/speech';
-import { formatWait, isNew, previewWaits, RATINGS, repeatsInSession, schedule, stageOf, type Rating } from '../lib/srs';
-import { actions, buildSession, getState, HARD_ROUND, hardCards, newCardsLeft, planToday, shuffle, useAppData } from '../lib/store';
+import { formatWait, previewWaits, RATINGS, repeatsInSession, schedule, stageOf, type Rating } from '../lib/srs';
+import { actions, buildStream, getState, HARD_ROUND, hardCards, planToday, REPEAT_LATER, REPEAT_SOON, requeue, shuffle, useAppData } from '../lib/store';
 import type { Card, Direction } from '../types';
 import { FlipCard } from './FlipCard';
-import { ProgressRing } from './ProgressRing';
 import { PairsBoard, type Pair } from './PairsBoard';
 import { QuizCard, type QuizResult } from './QuizCard';
 import { METHOD_ICONS } from './StudyLauncher';
 
 interface Props {
-  /** Undefined = today's round across all decks. */
+  /** Undefined = learn across all decks. */
   deckId?: string;
   tag?: string;
-  /** Undefined = today's list. See `StudyMode`. */
+  /** Undefined = just keep learning. See `StudyMode`. */
   mode?: StudyMode;
 }
 
@@ -42,7 +42,10 @@ const HINTS: Record<Question['kind'], string> = {
   truefalse: 'Stimmt die Antwort? Tippe auf Richtig oder Falsch',
 };
 
-const MODE_LABELS: Record<StudyMode, string> = { new: 'Neue Karten', hard: 'Schwierige Karten' };
+const MODE_LABELS: Record<StudyMode, string> = { hard: 'Schwierige Karten' };
+
+/** In pairs, only the next few cards are regrouped, so cards that come back soon stay close. */
+const PAIR_LOOKAHEAD = 12;
 
 let nextKey = 1;
 const pickReversed = (direction: Direction) => direction === 'back' || (direction === 'mixed' && Math.random() < 0.5);
@@ -51,14 +54,9 @@ function buildQueue(deckId: string | undefined, tag: string | undefined, mode: S
   const s = getState();
   const scoped = s.cards.filter((c) => (!deckId || c.deckId === deckId) && (!tag || c.tag === tag));
   const order = s.decks.map((d) => d.id);
-  const { sessionSize, newPerDay } = s.settings;
-  let list: Card[];
-  if (mode === 'hard') list = hardCards(scoped).slice(0, HARD_ROUND);
-  // One more batch of new cards, as many as a day's budget.
-  else if (mode === 'new') list = planToday(scoped, sessionSize > 0 ? Math.min(sessionSize, newPerDay) : newPerDay, order).fresh;
-  else list = buildSession(planToday(scoped, newCardsLeft(s), order), sessionSize);
-  // Which cards come up is decided above; the order they are shown in is random every time.
-  return shuffle(list).map((card) => ({ card, reversed: pickReversed(direction), key: nextKey++ }));
+  // No round and no daily number: everything due in random order with new cards mixed in, then the rest of the new ones.
+  const list = mode === 'hard' ? shuffle(hardCards(scoped).slice(0, HARD_ROUND)) : buildStream(planToday(scoped, order));
+  return list.map((card) => ({ card, reversed: pickReversed(direction), key: nextKey++ }));
 }
 
 /** "3 Tage" → "in 3 Tagen", "< 1 Min." → "gleich". */
@@ -69,14 +67,13 @@ function inWait(ms: number) {
 
 export function StudyPage({ deckId, tag, mode }: Props) {
   const { decks, cards, settings } = useAppData();
-  const { reviews, goal } = useToday();
-  // Difficult rounds count for the daily goal but leave the schedule as it is.
+  const { reviews } = useToday();
+  // Practising difficult cards counts as studied today but leaves the schedule as it is.
   const practice = mode === 'hard';
   const methodKey = deckId ?? (mode === 'hard' ? 'hard' : 'today');
   const deck = deckId ? decks.find((d) => d.id === deckId) : undefined;
   const scoped = useMemo(() => cards.filter((c) => (!deckId || c.deckId === deckId) && (!tag || c.tag === tag)), [cards, deckId, tag]);
   const scopeSize = scoped.length;
-  const scopeNew = useMemo(() => scoped.filter(isNew).length, [scoped]);
   const scopeHard = useMemo(() => hardCards(scoped).length, [scoped]);
   const { speak, stop, speakingKey, supported } = useSpeech(settings.speechRate);
 
@@ -90,27 +87,38 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   const [method, setMethod] = useState<StudyMethod>(() => savedMethod(settings.methods?.[methodKey]) ?? 'flip');
   const [result, setResult] = useState<QuizResult | null>(null);
   const shownAt = useRef(Date.now());
-  const [tally, setTally] = useState({ answers: 0, again: 0 });
+  // What happened since the page was opened: per card whether its latest answer was right, and how often "Nochmal" came up.
+  const [tally, setTally] = useState<{ cards: Record<string, boolean>; again: number }>({ cards: {}, again: 0 });
   const [feedback, setFeedback] = useState<{ text: string; id: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const studied = useRef(new Set<string>());
+  // "Genug für heute": shows what was learned, with the way back into the cards.
+  const [stopped, setStopped] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
 
   const current = queue[index];
-  const done = index >= queue.length;
+  const done = stopped || index >= queue.length;
+  const learned = Object.keys(tally.cards).length;
+  const known = Object.values(tally.cards).filter(Boolean).length;
   const live = current ? (cards.find((c) => c.id === current.card.id) ?? current.card) : undefined;
   const cardDeck = live ? decks.find((d) => d.id === live.deckId) : undefined;
   const exitHref = deckId ? href({ name: 'deck', id: deckId }) : href({ name: 'home' });
 
   const restart = useCallback(() => {
     stop();
-    studied.current = new Set();
     setQueue(buildQueue(deckId, tag, mode, direction));
     setIndex(0);
     setFlipped(false);
     setResult(null);
-    setTally({ answers: 0, again: 0 });
+    setStopped(false);
+    setTally({ cards: {}, again: 0 });
   }, [deckId, tag, mode, direction, stop]);
+
+  /** Leaves at once when nothing was answered yet, else shows what was learned first. */
+  const finish = () => {
+    stop();
+    if (learned === 0) navigate(deckId ? { name: 'deck', id: deckId } : { name: 'home' });
+    else setStopped(true);
+  };
 
   const changeDirection = (value: Direction) => {
     setDirection(value);
@@ -144,17 +152,17 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   const methods = useMemo(() => availableMethods(scoped), [scoped]);
   const activeMethod: StudyMethod = closestMethod(methods, method);
 
-  // For pairs, the short cards still to come move to the front, so a round isn't cut short by a long one in between.
+  // For pairs, the short cards coming up next move to the front, so a round isn't cut short by a long one in between.
   useEffect(() => {
     if (activeMethod !== 'pairs') return;
     setQueue((q) => {
-      const rest = q.slice(index);
+      const rest = q.slice(index, index + PAIR_LOOKAHEAD);
       // A card that comes twice (answered wrong earlier) can't be in the same round of pairs, so its second turn waits.
       const seen = new Set<string>();
       const first = (item: QueueItem) => isPairable(item) && !seen.has(item.card.id) && !!seen.add(item.card.id);
       const front = rest.filter(first);
       const sorted = [...front, ...rest.filter((item) => !front.includes(item))];
-      return sorted.every((item, i) => item === rest[i]) ? q : [...q.slice(0, index), ...sorted];
+      return sorted.every((item, i) => item === rest[i]) ? q : [...q.slice(0, index), ...sorted, ...q.slice(index + PAIR_LOOKAHEAD)];
     });
   }, [activeMethod, index]);
 
@@ -233,14 +241,16 @@ export function StudyPage({ deckId, tag, mode }: Props) {
       const now = Date.now();
       const latest = getState().cards.find((c) => c.id === current.card.id) ?? current.card;
       actions.reviewCard(latest.id, rating, practice);
-      studied.current.add(latest.id);
+      // A quiz already played its tone when the answer was tapped; turning a card over is rated here.
+      if (!result) playTone(rating === 1 ? 'wrong' : 'right', settings.sounds);
 
+      // A card that isn't known yet comes back a few cards later, not at the end of everything.
       const repeat = practice ? rating === 1 : repeatsInSession(latest, rating);
-      if (repeat) setQueue((q) => [...q, { ...current, key: nextKey++ }]);
-      setTally((t) => ({ answers: t.answers + 1, again: t.again + (rating === 1 ? 1 : 0) }));
+      if (repeat) setQueue((q) => requeue(q, index, [{ ...current, key: nextKey++ }], rating === 1 ? REPEAT_SOON : REPEAT_LATER));
+      setTally((t) => ({ cards: { ...t.cards, [latest.id]: rating !== 1 }, again: t.again + (rating === 1 ? 1 : 0) }));
 
       let text: string | null = null;
-      if (repeat) text = rating === 1 ? 'Kommt gleich nochmal' : 'Kommt in dieser Runde wieder';
+      if (repeat) text = rating === 1 ? 'Kommt gleich nochmal' : 'Kommt bald wieder';
       else if (!practice) {
         const next = schedule(latest, rating, now);
         const wait = inWait(next.due - now);
@@ -257,7 +267,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
         setIndex((i) => i + 1);
       }, 280);
     },
-    [current, leaving, stop, practice],
+    [current, leaving, stop, practice, index, result, settings.sounds],
   );
 
   const elapsed = () => Date.now() - shownAt.current;
@@ -269,8 +279,9 @@ export function StudyPage({ deckId, tag, mode }: Props) {
       // Right or wrong can be guessed half the time, so it never counts as "Leicht".
       const rating = quiz.kind === 'truefalse' ? (correct ? 3 : 1) : autoRating(correct, elapsed(), quiz.kind === 'cloze' ? FAST_ANSWER * 1.5 : FAST_ANSWER);
       setResult({ correct, picked: i, rating });
+      playTone(correct ? 'right' : 'wrong', settings.sounds);
     },
-    [quiz, result, leaving],
+    [quiz, result, leaving, settings.sounds],
   );
 
   /** Applies a whole round of pairs: found on the first try = Gut, with a wrong attempt = Nochmal. */
@@ -280,17 +291,18 @@ export function StudyPage({ deckId, tag, mode }: Props) {
       stop();
       const items = queue.slice(index, index + pairs.length);
       const repeats: QueueItem[] = [];
+      const outcome: Record<string, boolean> = {};
       let again = 0;
       for (const item of items) {
         const latest = getState().cards.find((c) => c.id === item.card.id) ?? item.card;
         const rating: Rating = mistakes[item.card.id] ? 1 : 3;
         actions.reviewCard(latest.id, rating, practice);
-        studied.current.add(latest.id);
+        outcome[latest.id] = rating !== 1;
         if (rating === 1) again++;
         if (practice ? rating === 1 : repeatsInSession(latest, rating)) repeats.push({ ...item, key: nextKey++ });
       }
-      if (repeats.length) setQueue((q) => [...q, ...repeats]);
-      setTally((t) => ({ answers: t.answers + items.length, again: t.again + again }));
+      if (repeats.length) setQueue((q) => requeue(q, index + items.length - 1, repeats, REPEAT_SOON));
+      setTally((t) => ({ cards: { ...t.cards, ...outcome }, again: t.again + again }));
       const text = again ? `${items.length - again} von ${items.length} auf Anhieb · ${again === 1 ? 'eine kommt' : `${again} kommen`} nochmal` : `${items.length} Paare auf Anhieb`;
       setFeedback({ text, id: Date.now() });
       setLeaving('right');
@@ -368,31 +380,20 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   }
 
   if (queue.length === 0) {
-    const offerNew = mode !== 'new' && scopeNew > 0;
     return (
       <div className="empty empty--page">
         <div className="empty__icon">
           <Check size={28} />
         </div>
-        <h2>
-          {mode === 'hard' ? 'Gerade keine schwierigen Karten' : mode === 'new' ? 'Hier gibt es keine neuen Karten mehr' : 'Für heute ist hier nichts mehr fällig'}
-        </h2>
+        <h2>{mode === 'hard' ? 'Gerade keine schwierigen Karten' : 'Hier ist gerade nichts zu lernen'}</h2>
         <p>
           {mode === 'hard'
-            ? 'Hier landen Karten, die du zuletzt falsch beantwortet oder nach dem Lernen wieder vergessen hast. '
-            : ''}
-          {offerNew
-            ? `Du kannst mit ${scopeNew === 1 ? 'der letzten neuen Karte' : `${scopeNew} neuen Karten`} weitermachen.`
-            : 'Die nächsten Karten kommen, wenn sie wieder dran sind. So bleibt das Gelernte am besten hängen.'}
+            ? 'Hier landen Karten, die du zuletzt falsch beantwortet oder nach dem Lernen wieder vergessen hast.'
+            : 'Alles ist wiederholt und es gibt keine neuen Karten mehr. Die nächsten kommen, wenn sie wieder dran sind. So bleibt das Gelernte am besten hängen.'}
         </p>
         <div className="empty__actions">
-          {offerNew && (
-            <a className="btn btn--primary" href={href({ name: 'study', id: deckId, tag, mode: 'new' })}>
-              <Plus size={18} /> Neue Karten lernen
-            </a>
-          )}
           {mode !== 'hard' && scopeHard > 0 && (
-            <a className={`btn ${offerNew ? 'btn--secondary' : 'btn--primary'}`} href={href({ name: 'study', id: deckId, tag, mode: 'hard' })}>
+            <a className="btn btn--primary" href={href({ name: 'study', id: deckId, tag, mode: 'hard' })}>
               <Target size={18} /> Schwierige Karten üben
             </a>
           )}
@@ -404,29 +405,29 @@ export function StudyPage({ deckId, tag, mode }: Props) {
     );
   }
 
-  const progress = queue.length ? index / queue.length : 0;
   const remaining = queue.length - index;
   const title = deck ? deck.name : 'Heute';
 
   return (
     <div className="study">
       <header className="study__bar">
-        <a className="icon-btn icon-btn--tint" href={exitHref} aria-label="Lernen beenden">
-          <X size={19} />
-        </a>
-        <div
-          className="study__progress"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={queue.length}
-          aria-valuenow={index}
-          aria-label="Fortschritt der Runde"
-        >
-          <i style={{ width: `${progress * 100}%` }} />
-        </div>
-        <span className="study__count">
-          {Math.min(index + 1, queue.length)} / {queue.length}
-        </span>
+        <p className="study__tally" role="status">
+          {learned === 0 ? (
+            "Los geht's"
+          ) : (
+            <>
+              <strong>
+                {learned} {learned === 1 ? 'Karte' : 'Karten'}
+              </strong>{' '}
+              · {known} gewusst
+            </>
+          )}
+        </p>
+        {!done && (
+          <button className="study__stop" onClick={finish}>
+            {mode === 'hard' ? 'Beenden' : 'Genug für heute'}
+          </button>
+        )}
         <div className="menu" ref={menu}>
           <button className="icon-btn icon-btn--tint" onClick={() => setMenuOpen((o) => !o)} aria-label="Lernoptionen" aria-expanded={menuOpen}>
             <Ellipsis size={19} />
@@ -479,7 +480,13 @@ export function StudyPage({ deckId, tag, mode }: Props) {
 
           {pairs ? (
             <>
-              <PairsBoard key={current.key} pairs={pairs} leaving={!!leaving} onDone={ratePairs} />
+              <PairsBoard
+                key={current.key}
+                pairs={pairs}
+                leaving={!!leaving}
+                onDone={ratePairs}
+                onMatch={(right) => playTone(right ? 'right' : 'wrong', settings.sounds)}
+              />
               <div className="study__actions">
                 {feedback && (
                   <p className="study__feedback study__feedback--top" key={feedback.id} role="status">
@@ -595,13 +602,15 @@ export function StudyPage({ deckId, tag, mode }: Props) {
         </>
       ) : (
         <SessionDone
-          cards={studied.current.size}
-          answers={tally.answers}
+          cards={learned}
+          known={known}
           again={tally.again}
           reviews={reviews}
-          goal={goal}
-          onRestart={restart}
+          // Stopped by hand with cards still waiting: offer the way back in.
+          onResume={stopped && index < queue.length ? () => setStopped(false) : undefined}
+          onRestart={mode === 'hard' && scopeHard > 0 ? restart : undefined}
           exitHref={exitHref}
+          stopped={stopped && index < queue.length}
           mode={mode}
         />
       )}
@@ -610,24 +619,40 @@ export function StudyPage({ deckId, tag, mode }: Props) {
 }
 
 interface DoneProps {
+  /** Different cards answered since the page was opened, and how many of them were known at the last try. */
   cards: number;
-  answers: number;
+  known: number;
   again: number;
+  /** All answers given today, also in earlier sittings. */
   reviews: number;
-  goal: number;
-  onRestart: () => void;
+  /** Back into the cards, when learning was stopped by hand. */
+  onResume?: () => void;
+  /** Another go at the difficult cards. */
+  onRestart?: () => void;
   exitHref: string;
+  stopped: boolean;
   mode?: StudyMode;
 }
 
-function SessionDone({ cards, answers, again, reviews, goal, onRestart, exitHref, mode }: DoneProps) {
+/** What was learned, shown after "Genug für heute" or when no cards are left. */
+function SessionDone({ cards, known, again, reviews, onResume, onRestart, exitHref, stopped, mode }: DoneProps) {
   const shown = useCountUp(cards);
-  const known = Math.max(0, answers - again);
-  const reached = reviews >= goal;
   return (
     <div className="study__done">
       <h2>
-        Runde <mark className="mark-draw">geschafft</mark>
+        {stopped ? (
+          <>
+            Genug für <mark className="mark-draw">heute</mark>
+          </>
+        ) : mode === 'hard' ? (
+          <>
+            Alle <mark className="mark-draw">geübt</mark>
+          </>
+        ) : (
+          <>
+            Alles <mark className="mark-draw">gelernt</mark>
+          </>
+        )}
       </h2>
       <p className="study__done-big">
         <strong>{shown}</strong> {cards === 1 ? 'Karte' : 'Karten'} gelernt
@@ -640,21 +665,21 @@ function SessionDone({ cards, answers, again, reviews, goal, onRestart, exitHref
           <RotateCcw size={16} /> {again}× nochmal
         </span>
       </div>
-      <div className="goal goal--inline">
-        <ProgressRing value={reviews / Math.max(1, goal)} size={52} stroke={6} label={String(reviews)} />
-        <div>
-          <strong>{reached ? 'Tagesziel erreicht' : `Tagesziel: ${reviews} von ${goal}`}</strong>
-          <span>{reached ? 'Stark. Morgen geht es weiter.' : `Noch ${goal - reviews} bis zum Ziel.`}</span>
-        </div>
-      </div>
+      {reviews > cards && <p className="study__done-today">Heute insgesamt {reviews} Antworten.</p>}
       <div className="study__done-actions">
-        <button className="btn btn--primary btn--lg" onClick={onRestart}>
-          {mode === 'new' ? <Plus size={18} /> : <RotateCcw size={18} />}{' '}
-          {mode === 'new' ? 'Weitere neue Karten' : 'Noch eine Runde'}
-        </button>
-        <a className="btn btn--ghost btn--lg" href={exitHref}>
+        <a className="btn btn--primary btn--lg" href={exitHref}>
           Fertig
         </a>
+        {onResume && (
+          <button className="btn btn--ghost btn--lg" onClick={onResume}>
+            <Play size={17} /> Doch weiterlernen
+          </button>
+        )}
+        {onRestart && (
+          <button className="btn btn--ghost btn--lg" onClick={onRestart}>
+            <RotateCcw size={18} /> Nochmal üben
+          </button>
+        )}
       </div>
     </div>
   );

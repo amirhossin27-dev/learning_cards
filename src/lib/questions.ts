@@ -1,11 +1,13 @@
 import type { Card, Deck } from '../types';
-import { bareTerm, findCloze, METHODS, normalize, PAIR_COUNT, PAIR_MAX_LENGTH, pickDistractors, type Candidate, type Cloze, type StudyMethod } from './quiz';
+import { answerVariants, bareTerm, cutGap, findCloze, METHODS, normalize, PAIR_COUNT, PAIR_MAX_LENGTH, pickDistractors, type Candidate, type Cloze, type StudyMethod } from './quiz';
 
 /**
  * Turns a card into a question for the chosen study method. Each card is only
  * asked in the ways that fit it (a gap needs an example sentence with the
  * word in it, pairs need short texts) and that are ticked for it in the card
- * editor; for anything else it gets the closest method it has.
+ * editor; for anything else it gets the closest method it has. The gap and
+ * the wrong answers can be fixed per card in the editor, otherwise they are
+ * found in the sentence and drawn from the deck.
  */
 
 export interface StudyItem {
@@ -62,22 +64,76 @@ function wrongAnswers(item: StudyItem, data: StudyData, count: number, random: (
   return wrong;
 }
 
+/** The user's own wrong answers that can be used for this answer: no doubles, nothing that counts as right. */
+export function usablePinned(pinned: string[] | undefined, answer: string): string[] {
+  const taken = new Set([...answerVariants(answer), normalize(answer)]);
+  const out: string[] = [];
+  for (const text of pinned ?? []) {
+    const key = normalize(text);
+    if (!key || taken.has(key)) continue;
+    taken.add(key);
+    out.push(text.trim());
+  }
+  return out;
+}
+
+/** Wrong answers fixed in the card editor come first (a random few if there are more than needed), the deck fills up the rest. */
+function withPinned(pinned: string[] | undefined, answer: string, count: number, random: () => number, fill: (count: number) => string[]): string[] {
+  const own = shuffled(usablePinned(pinned, answer), random).slice(0, count);
+  if (own.length >= count) return own;
+  const taken = new Set(own.map(normalize));
+  const rest = fill(count + own.length).filter((text) => !taken.has(normalize(text)));
+  return [...own, ...rest.slice(0, count - own.length)];
+}
+
+/** Wrong answers for multiple choice and true or false. The fixed ones are alternatives to the back, so they only apply front first. */
+function wrongFor(item: StudyItem, data: StudyData, count: number, random: () => number): string[] {
+  const pinned = item.reversed ? undefined : item.card.wrong;
+  return withPinned(pinned, side(item.card, item.reversed), count, random, (n) => wrongAnswers(item, data, n, random));
+}
+
+/** What stands in the gap of this card as the answer to tap: the picked words, or the front term. */
+function gapAnswer(card: Pick<Card, 'front' | 'example' | 'gap'>): string {
+  return card.gap && card.example && cutGap(card.gap, card.example) ? card.gap : bareTerm(card.front);
+}
+
+/** Wrong words for the gap, drawn from the other cards of the deck. */
+function gapFill(card: Pick<Card, 'id' | 'deckId' | 'front' | 'example' | 'gap' | 'tag'>, data: StudyData, count: number, random: () => number): string[] {
+  const pool: Candidate[] = data.cards
+    .filter((c) => c.id !== card.id && c.deckId === card.deckId)
+    .map((c) => ({ text: bareTerm(c.front), tag: c.tag, near: true }))
+    .filter((c) => c.text.length > 0 && c.text.length <= PAIR_MAX_LENGTH);
+  return pickDistractors(gapAnswer(card), card.tag, pool, count, random);
+}
+
+/**
+ * What the app would pick as wrong answers right now, for the card editor:
+ * `back` for multiple choice and true or false, `gap` for the gap. Always the
+ * same for the same cards, so the suggestions don't jump while typing.
+ */
+export function suggestWrong(card: Pick<Card, 'id' | 'deckId' | 'front' | 'back' | 'example' | 'gap' | 'tag'>, kind: 'back' | 'gap', data: StudyData, count = 3): string[] {
+  const steady = () => 0.5;
+  if (kind === 'gap') return gapFill(card, data, count, steady);
+  return wrongAnswers({ card: { ...card, box: 0, createdAt: 0 }, reversed: false }, data, count, steady);
+}
+
 function choice(item: StudyItem, data: StudyData, random: () => number): Question | null {
   const answer = side(item.card, item.reversed);
-  const wrong = wrongAnswers(item, data, 3, random);
+  const wrong = wrongFor(item, data, 3, random);
   if (wrong.length === 0) return null;
   const options = shuffled([answer, ...wrong], random);
   return { kind: 'choice', options, correct: options.indexOf(answer) };
 }
 
-/** A gap in the example sentence, for cards whose front term appears in it. */
-export function clozeFor(card: Card): Cloze | null {
-  return card.example ? findCloze(card.front, card.example) : null;
+/** The gap in the example sentence: the words picked in the card editor, else the front term where it appears in the sentence. */
+export function clozeFor(card: Pick<Card, 'front' | 'example' | 'gap'>): Cloze | null {
+  if (!card.example) return null;
+  return (card.gap ? cutGap(card.gap, card.example) : null) ?? findCloze(card.front, card.example);
 }
 
 /** Whether a method can work with this card at all, whatever is ticked for it. */
-export function fitsCard(card: Pick<Card, 'front' | 'back' | 'example'>, method: StudyMethod): boolean {
-  if (method === 'cloze') return !!card.example && !!findCloze(card.front, card.example);
+export function fitsCard(card: Pick<Card, 'front' | 'back' | 'example' | 'gap'>, method: StudyMethod): boolean {
+  if (method === 'cloze') return !!clozeFor(card);
   if (method === 'pairs') return card.front.length <= PAIR_MAX_LENGTH && card.back.length <= PAIR_MAX_LENGTH;
   return true;
 }
@@ -160,19 +216,15 @@ export function buildQuestion(item: StudyItem, method: StudyMethod, data: StudyD
     case 'cloze': {
       const cloze = clozeFor(card);
       if (!cloze) return choice(item, data, random);
-      const answer = bareTerm(card.front);
-      const pool: Candidate[] = data.cards
-        .filter((c) => c.id !== card.id && c.deckId === card.deckId)
-        .map((c) => ({ text: bareTerm(c.front), tag: c.tag, near: true }))
-        .filter((c) => c.text.length > 0 && c.text.length <= PAIR_MAX_LENGTH);
-      const wrong = pickDistractors(answer, card.tag, pool, 3, random);
+      const answer = gapAnswer(card);
+      const wrong = withPinned(card.wrongGap, answer, 3, random, (n) => gapFill(card, data, n, random));
       if (wrong.length === 0) return choice(item, data, random);
       const options = shuffled([answer, ...wrong], random);
       return { kind: 'cloze', cloze, options, correct: options.indexOf(answer) };
     }
     case 'truefalse': {
       const answer = side(card, item.reversed);
-      const [wrong] = wrongAnswers(item, data, 1, random);
+      const [wrong] = wrongFor(item, data, 1, random);
       const isTrue = !wrong || random() < 0.5;
       return { kind: 'truefalse', shown: isTrue ? answer : wrong, isTrue, options: ['Falsch', 'Richtig'], correct: isTrue ? 1 : 0 };
     }

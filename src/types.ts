@@ -1,4 +1,5 @@
 import type { StudyMethod } from './lib/quiz';
+import type { SoundLevel } from './lib/sounds';
 
 export type Lang = 'en-US' | 'en-GB' | 'de-DE' | 'fr-FR' | 'es-ES' | 'it-IT';
 
@@ -19,6 +20,15 @@ export interface Card {
    * left out either way, see `cardMethods`.
    */
   methods?: StudyMethod[];
+  /**
+   * The words of the example sentence picked as the gap in the card editor.
+   * Without it the front term is looked for in the sentence, see `clozeFor`.
+   */
+  gap?: string;
+  /** Wrong answers fixed in the card editor for multiple choice and true or false (alternatives to the back). */
+  wrong?: string[];
+  /** Wrong answers fixed in the card editor for the gap. */
+  wrongGap?: string[];
   /** Box 0–4, derived from the review interval. The UI shows it as a stage (Neu, Am Lernen, Sitzt), see `stageOf`. */
   box: number;
   /** Days until the next review; 0 while the card is new or being relearned. */
@@ -60,12 +70,9 @@ export interface Settings {
   englishAccent: 'en-US' | 'en-GB';
   speechRate: number;
   autoSpeak: boolean;
+  /** The tones for a right and a wrong answer. */
+  sounds: SoundLevel;
   direction: Direction;
-  sessionSize: number;
-  /** Answers per day that count as reaching the daily goal. */
-  dailyGoal: number;
-  /** New cards introduced per day across all decks. */
-  newPerDay: number;
   /** Study method per deck id ("today" and "hard" for the rounds across all decks). */
   methods: Record<string, StudyMethod>;
 }

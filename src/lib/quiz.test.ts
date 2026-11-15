@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerVariants, autoRating, findCloze, normalize, pickDistractors, type Candidate } from './quiz';
+import { answerVariants, autoRating, cutGap, findCloze, gapWords, normalize, pickDistractors, sentenceWords, type Candidate } from './quiz';
 
 describe('normalize', () => {
   it('ignores case, punctuation, accents and spells out umlauts', () => {
@@ -87,5 +87,27 @@ describe('findCloze', () => {
   it('does not match inside other words or when the term is missing', () => {
     expect(findCloze('to be', 'It is because of you.')).toBeNull();
     expect(findCloze('agenda', 'Nothing to see here.')).toBeNull();
+  });
+});
+
+describe('picking a gap by hand', () => {
+  const sentence = 'I followed up with the client, yesterday.';
+
+  it('splits a sentence into words without their punctuation', () => {
+    const words = sentenceWords('Well – "done", team!');
+    expect(words.map((w) => w.text)).toEqual(['Well', '–', '"done",', 'team!']);
+    expect(words.map((w) => 'Well – "done", team!'.slice(w.start, w.end))).toEqual(['Well', '', 'done', 'team']);
+  });
+
+  it('finds the words of a gap and cuts them out', () => {
+    expect(gapWords('followed up', sentence)).toEqual([1, 2]);
+    expect(gapWords('client', sentence)).toEqual([5, 5]);
+    expect(cutGap('client', sentence)).toEqual({ before: 'I followed up with the ', gap: 'client', after: ', yesterday.' });
+  });
+
+  it('gives up when the sentence no longer has the gap as whole words', () => {
+    expect(gapWords('follow', sentence)).toBeNull();
+    expect(cutGap('meeting', sentence)).toBeNull();
+    expect(cutGap('', sentence)).toBeNull();
   });
 });

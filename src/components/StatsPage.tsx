@@ -26,7 +26,7 @@ function forecast(cards: Card[], now: number) {
 
 export function StatsPage() {
   const { decks, cards, history } = useAppData();
-  const { now, reviews, goal, streak } = useToday();
+  const { now, reviews, streak } = useToday();
 
   const week = useMemo(() => {
     let sum = 0;
@@ -58,7 +58,7 @@ export function StatsPage() {
         <div className="stat-tile">
           <span>Heute</span>
           <strong>{reviews}</strong>
-          <small>von {goal} Karten</small>
+          <small>{reviews === 1 ? 'Antwort' : 'Antworten'}</small>
         </div>
         <div className="stat-tile">
           <span>Letzte 7 Tage</span>
@@ -75,7 +75,7 @@ export function StatsPage() {
       <div className="stats__grid">
         <section className="panel">
           <h2 className="panel__title">Lernkalender</h2>
-          <Heatmap history={history} goal={goal} weeks={20} now={now} />
+          <Heatmap history={history} weeks={20} now={now} />
         </section>
 
         <section className="panel">
@@ -91,7 +91,7 @@ export function StatsPage() {
               </div>
             ))}
           </div>
-          <p className="panel__note">Ohne neue Karten. Davon kommen täglich so viele dazu, wie du in den Einstellungen festlegst.</p>
+          <p className="panel__note">Ohne neue Karten. Die mischen sich beim Lernen dazu, etwa jede vierte Karte ist neu.</p>
         </section>
 
         <section className="panel panel--wide">

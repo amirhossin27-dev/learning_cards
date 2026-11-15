@@ -3,24 +3,23 @@ import type { DayLog } from '../types';
 
 interface Props {
   history: Record<string, DayLog>;
-  goal: number;
   weeks: number;
   now: number;
 }
 
 const DATE = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
 
-function level(reviews: number, goal: number): number {
+/** Shade of a day: a few cards, ten, twenty-five, fifty or more. */
+function level(reviews: number): number {
   if (reviews <= 0) return 0;
-  const share = reviews / Math.max(1, goal);
-  if (share < 0.25) return 1;
-  if (share < 0.5) return 2;
-  if (share < 1) return 3;
+  if (reviews < 10) return 1;
+  if (reviews < 25) return 2;
+  if (reviews < 50) return 3;
   return 4;
 }
 
-/** Study calendar: one column per week (Monday on top), shade = share of the daily goal. */
-export function Heatmap({ history, goal, weeks, now }: Props) {
+/** Study calendar: one column per week (Monday on top), the more cards on a day the darker. */
+export function Heatmap({ history, weeks, now }: Props) {
   const today = startOfDay(now);
   const weekday = (new Date(today).getDay() + 6) % 7; // Monday = 0
   const first = addDays(today, -weekday - (weeks - 1) * 7);
@@ -35,7 +34,7 @@ export function Heatmap({ history, goal, weeks, now }: Props) {
     cells.push(
       <i
         key={i}
-        className={`heat__cell l${level(reviews, goal)} ${day === today ? 'is-today' : ''}`}
+        className={`heat__cell l${level(reviews)} ${day === today ? 'is-today' : ''}`}
         title={`${DATE.format(day)}: ${reviews} ${reviews === 1 ? 'Karte' : 'Karten'}`}
       />,
     );
@@ -56,7 +55,7 @@ export function Heatmap({ history, goal, weeks, now }: Props) {
         {[0, 1, 2, 3, 4].map((l) => (
           <i key={l} className={`heat__cell l${l}`} />
         ))}
-        <span>Tagesziel</span>
+        <span>mehr</span>
       </div>
     </div>
   );

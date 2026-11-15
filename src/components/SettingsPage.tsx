@@ -1,6 +1,7 @@
 import { Download, Monitor, Moon, RefreshCcw, Sun, Volume2 } from 'lucide-react';
 import { exportCsv } from '../lib/csv';
 import { downloadText } from '../lib/download';
+import { playTone, SOUND_LEVELS } from '../lib/sounds';
 import { isAppleTouch, SAMPLE_SENTENCE, useSpeech } from '../lib/speech';
 import { actions, useAppData } from '../lib/store';
 import type { Settings } from '../types';
@@ -12,9 +13,6 @@ const THEMES: { value: Settings['theme']; label: string; icon: typeof Sun }[] = 
   { value: 'dark', label: 'Dunkel', icon: Moon },
 ];
 
-const SESSION_SIZES = [10, 20, 50, 0];
-const DAILY_GOALS = [10, 20, 30, 50];
-const NEW_PER_DAY = [5, 10, 20, 50];
 
 export function SettingsPage() {
   const { settings, decks, cards } = useAppData();
@@ -109,45 +107,33 @@ export function SettingsPage() {
       </section>
 
       <section className="settings-group">
-        <h2>Lernen</h2>
+        <h2>Töne</h2>
         <div className="setting">
           <div className="setting__label">
-            <strong>Tagesziel</strong>
-            <span>Antworten pro Tag, die als geschafft zählen</span>
+            <strong>Ton bei richtig und falsch</strong>
+            <span>Ein kurzes Glöckchen nach jeder Antwort</span>
           </div>
-          <div className="segmented" role="group" aria-label="Tagesziel">
-            {DAILY_GOALS.map((n) => (
-              <button key={n} className={settings.dailyGoal === n ? 'is-active' : ''} onClick={() => set({ dailyGoal: n })}>
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="setting">
-          <div className="setting__label">
-            <strong>Neue Karten pro Tag</strong>
-            <span>So viele noch nie gelernte Karten kommen täglich dazu</span>
-          </div>
-          <div className="segmented" role="group" aria-label="Neue Karten pro Tag">
-            {NEW_PER_DAY.map((n) => (
-              <button key={n} className={settings.newPerDay === n ? 'is-active' : ''} onClick={() => set({ newPerDay: n })}>
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="setting">
-          <div className="setting__label">
-            <strong>Karten pro Runde</strong>
-          </div>
-          <div className="segmented" role="group" aria-label="Karten pro Runde">
-            {SESSION_SIZES.map((n) => (
-              <button key={n} className={settings.sessionSize === n ? 'is-active' : ''} onClick={() => set({ sessionSize: n })}>
-                {n === 0 ? 'Alle' : n}
-              </button>
-            ))}
+          <div className="setting__control">
+            <div className="segmented" role="group" aria-label="Ton bei richtig und falsch">
+              {SOUND_LEVELS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  className={(settings.sounds ?? 'normal') === value ? 'is-active' : ''}
+                  onClick={() => {
+                    set({ sounds: value });
+                    playTone('right', value);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button className="btn btn--ghost btn--sm" onClick={() => playTone('wrong', settings.sounds)} disabled={settings.sounds === 'off'}>
+              <Volume2 size={16} /> Falsch
+            </button>
           </div>
         </div>
+        {isAppleTouch && <p className="form__hint">Am iPhone bleiben die Töne still, solange der Stummschalter an ist.</p>}
       </section>
 
       <section className="settings-group">

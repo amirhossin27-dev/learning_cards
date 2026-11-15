@@ -163,6 +163,48 @@ export function findCloze(term: string, sentence: string): Cloze | null {
   return { before: sentence.slice(0, match.index), gap: match[0], after: sentence.slice(match.index + match[0].length) };
 }
 
+export interface SentenceWord {
+  /** The word with the punctuation around it, as it stands in the sentence. */
+  text: string;
+  /** Where the word itself starts and ends in the sentence (without punctuation). Equal when it is punctuation only. */
+  start: number;
+  end: number;
+}
+
+/** A sentence split at spaces, for picking the gap word by word in the card editor. */
+export function sentenceWords(sentence: string): SentenceWord[] {
+  const out: SentenceWord[] = [];
+  for (const m of sentence.matchAll(/\S+/g)) {
+    const core = /[\p{L}\p{N}](?:.*[\p{L}\p{N}])?/u.exec(m[0]);
+    const start = m.index + (core ? core.index : 0);
+    out.push({ text: m[0], start, end: core ? start + core[0].length : start });
+  }
+  return out;
+}
+
+/** First and last word (as indexes into `sentenceWords`) that make up a gap, or null when the sentence doesn't contain it as whole words. */
+export function gapWords(gap: string, sentence: string): [number, number] | null {
+  if (!gap) return null;
+  const words = sentenceWords(sentence);
+  for (let i = 0; i < words.length; i++) {
+    if (words[i].start === words[i].end) continue;
+    for (let j = i; j < words.length; j++) {
+      const length = words[j].end - words[i].start;
+      if (length > gap.length) break;
+      if (length === gap.length && sentence.slice(words[i].start, words[j].end) === gap) return [i, j];
+    }
+  }
+  return null;
+}
+
+/** Cuts a gap picked in the card editor out of the sentence. Null when the sentence doesn't contain it (any more). */
+export function cutGap(gap: string, sentence: string): Cloze | null {
+  const range = gapWords(gap, sentence);
+  if (!range) return null;
+  const words = sentenceWords(sentence);
+  return { before: sentence.slice(0, words[range[0]].start), gap, after: sentence.slice(words[range[1]].end) };
+}
+
 /** Pairs need short texts on both sides so five of them fit on a phone screen. */
 export const PAIR_MAX_LENGTH = 40;
 export const PAIR_COUNT = 5;

@@ -9,7 +9,7 @@ import type { Card } from '../types';
 import { solidText, StageBar } from './StageBar';
 import { DeckEditor } from './DeckEditor';
 import { DeckTile } from './DeckTile';
-import { GoalCard } from './GoalCard';
+import { TodayCard } from './TodayCard';
 import { Heatmap } from './Heatmap';
 import { ImportDialog } from './ImportDialog';
 import { StudyLauncher } from './StudyLauncher';
@@ -27,7 +27,7 @@ function greeting(now: number) {
 
 export function HomePage() {
   const { decks, cards, history } = useAppData();
-  const { now, plan, count, reviews, goal, streak } = useToday();
+  const { now, plan, count, reviews, streak } = useToday();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -39,7 +39,7 @@ export function HomePage() {
 
   const todayByDeck = useMemo(() => {
     const map = new Map<string, number>();
-    for (const c of [...plan.due, ...plan.fresh]) map.set(c.deckId, (map.get(c.deckId) ?? 0) + 1);
+    for (const c of plan.due) map.set(c.deckId, (map.get(c.deckId) ?? 0) + 1);
     return map;
   }, [plan]);
 
@@ -52,7 +52,8 @@ export function HomePage() {
   const all = deckStats(cards, now);
   const hard = useMemo(() => Math.min(hardCards(cards).length, HARD_ROUND), [cards]);
   const methods = useMemo(() => availableMethods(cards), [cards]);
-  // The big button: what is due, else new cards beyond today's budget, else nothing until tomorrow.
+  const waiting = `${all.fresh} neue ${all.fresh === 1 ? 'Karte wartet' : 'Karten warten'}`;
+  // The big button: what is due (new cards mix in), else the new cards, else nothing until tomorrow.
   const launch =
     cards.length === 0
       ? { route: null, title: 'Weiterlernen', subtitle: 'Leg zuerst einen Stapel mit Karten an' }
@@ -60,16 +61,12 @@ export function HomePage() {
         ? {
             route: { name: 'study' } as const,
             title: 'Weiterlernen',
-            subtitle: `${count} ${count === 1 ? 'Karte' : 'Karten'} · etwa ${minutesFor(count)} Min.`,
+            subtitle: `${count} zum Wiederholen · etwa ${minutesFor(count)} Min.`,
           }
         : all.fresh > 0
-          ? {
-              route: { name: 'study', mode: 'new' } as const,
-              title: 'Neue Karten lernen',
-              subtitle: `${all.fresh} neue ${all.fresh === 1 ? 'Karte wartet' : 'Karten warten'}`,
-            }
+          ? { route: { name: 'study' } as const, title: 'Weiterlernen', subtitle: waiting }
           : { route: null, title: 'Für heute erledigt', subtitle: 'Morgen geht es weiter' };
-  const goalCard = <GoalCard reviews={reviews} goal={goal} streak={streak} />;
+  const todayCard = <TodayCard reviews={reviews} streak={streak} />;
 
   return (
     <div className="page today">
@@ -84,13 +81,29 @@ export function HomePage() {
                 <mark>
                   {count} {count === 1 ? 'Karte' : 'Karten'}
                 </mark>{' '}
-                {count === 1 ? 'ist' : 'sind'} heute dran
+                zum Wiederholen
               </h1>
               <p className="today__sub">
-                {[plan.due.length > 0 && `${plan.due.length} zum Wiederholen`, plan.fresh.length > 0 && `${plan.fresh.length} neu`]
-                  .filter(Boolean)
-                  .join(', ')}
-                {todayByDeck.size > 1 && ` aus ${todayByDeck.size} Stapeln`} · etwa {minutesFor(count)} Min.
+                {todayByDeck.size > 1 ? `Aus ${todayByDeck.size} Stapeln, etwa` : 'Etwa'} {minutesFor(count)} Min.
+                {all.fresh > 0 ? ' Zwischendurch kommen neue Karten dazu. Hör auf, wann du magst.' : ' Hör auf, wann du magst.'}
+              </p>
+            </>
+          ) : all.fresh > 0 ? (
+            <>
+              <h1>
+                {all.fresh === all.total ? (
+                  <>
+                    Zeit für <mark>neue Karten</mark>
+                  </>
+                ) : (
+                  <>
+                    Alles <mark>wiederholt</mark> für heute
+                  </>
+                )}
+              </h1>
+              <p className="today__sub">
+                {reviews > 0 ? `Du hast heute ${reviews} ${reviews === 1 ? 'Karte' : 'Karten'} gelernt. ` : ''}
+                {waiting}. Lern so viele davon, wie du magst.
               </p>
             </>
           ) : (
@@ -104,7 +117,7 @@ export function HomePage() {
               </p>
             </>
           )}
-          <div className="only-narrow">{goalCard}</div>
+          <div className="only-narrow">{todayCard}</div>
           <StudyLauncher {...launch} hasCards={cards.length > 0} scope={{ name: 'study' }} hard={hard} methods={methods} methodKey="today">
             <button type="button" className="launcher__chip hide-mobile" onClick={() => setImporting(true)}>
               <Upload size={15} /> CSV importieren
@@ -138,14 +151,14 @@ export function HomePage() {
 
       <aside className="today__rail">
         <section>
-          <h3 className="rail-title">Tagesziel</h3>
-          {goalCard}
+          <h3 className="rail-title">Heute</h3>
+          {todayCard}
         </section>
         <section>
           <h3 className="rail-title">
             Lernkalender <span>15 Wochen</span>
           </h3>
-          <Heatmap history={history} goal={goal} weeks={15} now={now} />
+          <Heatmap history={history} weeks={15} now={now} />
         </section>
         <section>
           <h3 className="rail-title">

@@ -8,7 +8,7 @@ import { resolveLang, useSpeech } from '../lib/speech';
 import { useNow } from '../hooks/useToday';
 import { DeckIcon } from '../lib/deckIcons';
 import { DAY, endOfDay, isDue, isNew, stageOf, STAGES } from '../lib/srs';
-import { actions, deckStats, HARD_ROUND, hardCards, minutesFor, newCardsLeft, planToday, useAppData } from '../lib/store';
+import { actions, deckStats, HARD_ROUND, hardCards, minutesFor, planToday, useAppData } from '../lib/store';
 import type { Card } from '../types';
 import { solidText, StageBar } from './StageBar';
 import { CardEditor } from './CardEditor';
@@ -81,29 +81,25 @@ export function DeckPage({ deckId }: { deckId: string }) {
 
   const stats = deckStats(deckCards, now);
   const tagCards = tag ? deckCards.filter((c) => c.tag === tag) : deckCards;
-  const tagPlan = planToday(tagCards, newCardsLeft(data, now), [], now);
-  const todayCount = tagPlan.due.length + tagPlan.fresh.length;
+  const dueCount = planToday(tagCards, [], now).due.length;
   const tagNew = tagCards.filter(isNew).length;
   const scope = { name: 'study', id: deck.id, tag: tag ?? undefined } as const;
   const hard = Math.min(hardCards(tagCards).length, HARD_ROUND);
   const methods = availableMethods(tagCards);
   const what = tag ? `${tag} lernen` : 'Weiterlernen';
-  // The big button: what is due, else new cards beyond today's budget, else nothing until tomorrow.
+  const waiting = `${tagNew} neue ${tagNew === 1 ? 'Karte wartet' : 'Karten warten'}`;
+  // The big button: what is due (new cards mix in), else the new cards, else nothing until tomorrow.
   const launch =
     tagCards.length === 0
       ? { route: null, title: what, subtitle: 'Leg zuerst ein paar Karten an' }
-      : todayCount > 0
+      : dueCount > 0
         ? {
             route: scope,
             title: what,
-            subtitle: `${todayCount} ${todayCount === 1 ? 'Karte' : 'Karten'} heute dran · etwa ${minutesFor(todayCount)} Min.`,
+            subtitle: `${dueCount} zum Wiederholen · ${tagNew > 0 ? `${tagNew} neu` : `etwa ${minutesFor(dueCount)} Min.`}`,
           }
         : tagNew > 0
-          ? {
-              route: { ...scope, mode: 'new' as const },
-              title: 'Neue Karten lernen',
-              subtitle: `Für heute erledigt · ${tagNew} neue ${tagNew === 1 ? 'Karte wartet' : 'Karten warten'}`,
-            }
+          ? { route: scope, title: what, subtitle: `Alles wiederholt · ${waiting}` }
           : { route: null, title: 'Für heute erledigt', subtitle: 'Alle Karten sind gelernt · morgen geht es weiter' };
 
   const exportDeck = () => {

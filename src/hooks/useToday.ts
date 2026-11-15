@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { newCardsLeft, planToday, reviewsOn, streak, useAppData } from '../lib/store';
+import { planToday, reviewsOn, streak, useAppData } from '../lib/store';
 
 /** Current time that refreshes every minute and whenever the app comes back to the foreground. */
 export function useNow(): number {
@@ -18,20 +18,20 @@ export function useNow(): number {
   return now;
 }
 
-/** Today's list across all decks plus goal and streak. */
+/** What is due today across all decks, the new cards waiting, and today's answers and streak. */
 export function useToday() {
   const data = useAppData();
   const now = useNow();
   return useMemo(() => {
     const order = data.decks.map((d) => d.id);
-    const plan = planToday(data.cards, newCardsLeft(data, now), order, now);
+    const plan = planToday(data.cards, order, now);
     const reviews = reviewsOn(data.history, now);
     return {
       now,
       plan,
-      count: plan.due.length + plan.fresh.length,
+      /** Cards to repeat today. */
+      count: plan.due.length,
       reviews,
-      goal: data.settings.dailyGoal,
       streak: streak(data.history, now),
     };
   }, [data, now]);

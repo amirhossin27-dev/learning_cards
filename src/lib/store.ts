@@ -15,10 +15,8 @@ export const defaultSettings: Settings = {
   englishAccent: 'en-US',
   speechRate: 0.95,
   autoSpeak: false,
+  sounds: 'normal',
   direction: 'front',
-  sessionSize: 20,
-  dailyGoal: 20,
-  newPerDay: 20,
   methods: {},
 };
 
@@ -116,6 +114,8 @@ export function migrate(raw: Partial<AppData>): AppData {
     if (method) methods[key] = method;
   }
   data.settings.methods = methods;
+  // Daily goal, round size and new cards per day are gone: learning just goes on, see `buildStream`.
+  for (const key of ['dailyGoal', 'sessionSize', 'newPerDay']) delete (data.settings as unknown as Record<string, unknown>)[key];
   data.version = VERSION;
   return data;
 }
@@ -156,13 +156,13 @@ export function getState(): AppData {
   return state;
 }
 
-export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag' | 'methods'>>;
+export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag' | 'methods' | 'gap' | 'wrong' | 'wrongGap'>>;
 
 /** Drops empty optional fields so they don't show up as blank sections. */
 function clean<T extends object>(input: T): T {
   const out = { ...input } as Record<string, unknown>;
   for (const key of Object.keys(out)) {
-    if (out[key] === undefined) delete out[key];
+    if (out[key] === undefined || (Array.isArray(out[key]) && out[key].length === 0)) delete out[key];
     else if (typeof out[key] === 'string') {
       out[key] = (out[key] as string).trim();
       if (out[key] === '' && key !== 'front' && key !== 'back') delete out[key];
@@ -206,7 +206,7 @@ export const actions = {
       ...s,
       cards: s.cards.map((c) => {
         if (c.id !== id) return c;
-        const { example: _e, note: _n, tag: _t, methods: _m, ...base } = c;
+        const { example: _e, note: _n, tag: _t, methods: _m, gap: _g, wrong: _w, wrongGap: _wg, ...base } = c;
         return { ...base, ...clean(input) };
       }),
     }));
@@ -226,9 +226,9 @@ export const actions = {
   },
 
   /**
-   * Applies an answer. In an extra round (`practice`) the schedule stays as it
-   * is, so studying ahead never pushes cards further into the future, but the
-   * answer still counts towards the daily goal.
+   * Applies an answer. When practising difficult cards (`practice`) the
+   * schedule stays as it is, so extra practice never pushes cards further into
+   * the future, but the answer still counts as studied today.
    */
   reviewCard(id: string, rating: Rating, practice = false) {
     const now = Date.now();
@@ -282,35 +282,51 @@ export function deckStats(cards: Card[], now = Date.now()): DeckStats {
   return { total: cards.length, fresh: stages.new, learning: stages.learning, solid: stages.solid, due };
 }
 
-export function newCardsLeft(data: Pick<AppData, 'history' | 'settings'>, now = Date.now()): number {
-  return Math.max(0, data.settings.newPerDay - (data.history[dayKey(now)]?.fresh ?? 0));
-}
-
 export interface Plan {
   /** Learned cards due today, most overdue first. */
   due: Card[];
-  /** New cards within today's budget, in deck order. */
+  /** Cards never studied, in deck order. */
   fresh: Card[];
 }
 
-/** What is on today's list for the given cards. `deckOrder` decides which deck's new cards come first. */
-export function planToday(cards: Card[], newBudget: number, deckOrder: string[] = [], now = Date.now()): Plan {
+/** What there is to learn right now. `deckOrder` decides which deck's new cards come first. */
+export function planToday(cards: Card[], deckOrder: string[] = [], now = Date.now()): Plan {
   const due = cards.filter((c) => isDue(c, now)).sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
   const rank = (c: Card) => {
     const i = deckOrder.indexOf(c.deckId);
     return i < 0 ? deckOrder.length : i;
   };
-  const fresh = cards
-    .filter(isNew)
-    .sort((a, b) => rank(a) - rank(b) || a.createdAt - b.createdAt)
-    .slice(0, newBudget);
+  const fresh = cards.filter(isNew).sort((a, b) => rank(a) - rank(b) || a.createdAt - b.createdAt);
   return { due, fresh };
 }
 
-/** Today's round: due cards first, then new ones mixed in, capped at `size` (0 = all). */
-export function buildSession(plan: Plan, size: number): Card[] {
-  const queue = [...plan.due, ...plan.fresh];
-  return size > 0 ? queue.slice(0, size) : queue;
+/** While there are cards to repeat, about every fourth card is a new one. */
+export const NEW_EVERY = 4;
+
+/**
+ * The cards for "Weiterlernen", one after the other with no round and no
+ * daily number: what is due in random order, a new card mixed in after every
+ * three of them, and once nothing is due any more the remaining new cards.
+ * Whoever learns more gets more new cards.
+ */
+export function buildStream(plan: Plan, mix: <T>(items: T[]) => T[] = shuffle): Card[] {
+  const out: Card[] = [];
+  let next = 0;
+  mix(plan.due).forEach((card, i) => {
+    out.push(card);
+    if ((i + 1) % (NEW_EVERY - 1) === 0 && next < plan.fresh.length) out.push(plan.fresh[next++]);
+  });
+  return [...out, ...plan.fresh.slice(next)];
+}
+
+/** How far ahead a card answered wrong comes back, and one that was only just known. */
+export const REPEAT_SOON = 3;
+export const REPEAT_LATER = 8;
+
+/** Puts cards back into the queue a few places after the current one (at the end when it is shorter). */
+export function requeue<T>(queue: T[], index: number, items: T[], gap: number): T[] {
+  const at = Math.min(queue.length, index + 1 + gap);
+  return [...queue.slice(0, at), ...items, ...queue.slice(at)];
 }
 
 /** How many cards a round of difficult cards holds at most. */

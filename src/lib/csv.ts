@@ -14,6 +14,12 @@ export interface ParsedCard {
   example?: string;
   note?: string;
   tag?: string;
+  /** The words of the example sentence that are cut out as the gap. */
+  gap?: string;
+  /** Fixed wrong answers for multiple choice and true or false. */
+  wrong?: string[];
+  /** Fixed wrong answers for the gap. */
+  wrongGap?: string[];
 }
 
 export interface ImportResult {
@@ -36,7 +42,14 @@ const HEADER_ALIASES: Record<Field, string[]> = {
   example: ['example', 'beispiel', 'beispielsatz', 'sentence'],
   note: ['note', 'notes', 'notiz', 'hinweis', 'eselsbrücke', 'eselsbruecke', 'mnemonic', 'tipp'],
   tag: ['tag', 'tags', 'kategorie', 'category', 'thema', 'topic'],
+  gap: ['gap', 'lücke', 'luecke', 'cloze'],
+  wrong: ['wrong', 'falsch', 'falsche antworten', 'wrong answers', 'distractors'],
+  wrongGap: ['wrong_gap', 'wrong gap', 'falsch_lücke', 'falsch_luecke', 'falsche lücke', 'falsche luecke'],
 };
+
+/** Several wrong answers share one cell, separated by " | ". */
+const LIST_SEPARATOR = ' | ';
+const splitList = (cell: string) => cell.split('|').map((s) => s.trim()).filter(Boolean);
 
 export function detectDelimiter(text: string): string {
   const sample = text.split(/\r?\n/).slice(0, 20);
@@ -182,6 +195,15 @@ export function importCsv(text: string): ImportResult {
     if (example) card.example = example;
     if (note) card.note = note;
     if (tag) card.tag = tag;
+    // Only files with a header row carry these, so a sixth column in a plain list is never taken for a gap.
+    if (header) {
+      const gap = get(row, 'gap');
+      const wrong = splitList(get(row, 'wrong'));
+      const wrongGap = splitList(get(row, 'wrongGap'));
+      if (gap) card.gap = gap;
+      if (wrong.length) card.wrong = wrong;
+      if (wrongGap.length) card.wrongGap = wrongGap;
+    }
     cards.push(card);
     byFront.set(normalize(front), card);
   }
@@ -197,9 +219,14 @@ function escapeCell(value: string | undefined, delimiter: string): string {
 /** Serialises cards with a header row. A BOM is prepended so Excel shows umlauts correctly. */
 export function exportCsv(cards: ParsedCard[], delimiter = ','): string {
   const header = ['front', 'back', 'example', 'note', 'tag'];
+  // The gap and the fixed wrong answers only get columns when a card has them, so plain decks keep their five columns.
+  const extra = cards.some((c) => c.gap || c.wrong?.length || c.wrongGap?.length);
+  if (extra) header.push('gap', 'wrong', 'wrong_gap');
   const lines = [header.join(delimiter)];
   for (const c of cards) {
-    lines.push([c.front, c.back, c.example, c.note, c.tag].map((v) => escapeCell(v, delimiter)).join(delimiter));
+    const cells = [c.front, c.back, c.example, c.note, c.tag];
+    if (extra) cells.push(c.gap, c.wrong?.join(LIST_SEPARATOR), c.wrongGap?.join(LIST_SEPARATOR));
+    lines.push(cells.map((v) => escapeCell(v, delimiter)).join(delimiter));
   }
   return '﻿' + lines.join('\r\n') + '\r\n';
 }

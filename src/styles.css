@@ -792,37 +792,6 @@ kbd {
   }
 }
 
-/* Progress ring */
-
-.ring {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-}
-
-.ring svg {
-  position: absolute;
-  inset: 0;
-}
-
-.ring__track {
-  stroke: var(--tint);
-}
-
-.ring__value {
-  stroke: var(--ink);
-  transition: stroke-dashoffset 0.6s var(--ease);
-}
-
-.ring__label {
-  position: relative;
-  font-family: var(--f-mono);
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Leitner box bar */
 
 .stagebar {
@@ -1030,10 +999,17 @@ kbd {
   color: var(--ink-2);
 }
 
-.goal.is-reached .ring__label {
-  background: var(--hl);
-  border-radius: 4px;
-  padding: 0 3px;
+.goal__count {
+  min-width: 52px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: var(--tint);
+  font-family: var(--f-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ==========================================================================
@@ -1843,31 +1819,46 @@ a.deck-tile:hover {
 
 .study__bar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 40px;
   align-items: center;
   gap: 12px;
 }
 
-.study__progress {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--tint);
+.study__tally {
+  min-width: 0;
   overflow: hidden;
-}
-
-.study__progress i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--ink);
-  transition: width 0.35s var(--ease);
-}
-
-.study__count {
-  font-family: var(--f-mono);
-  font-size: 0.78rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.86rem;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
+}
+
+.study__tally strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.study__stop {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.study__stop:hover {
+  background: var(--rule-strong);
+}
+
+.study__stop:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .study__deck {
@@ -2189,6 +2180,8 @@ a.deck-tile:hover {
   left: 50%;
   bottom: calc(100% + 14px);
   transform: translateX(-50%);
+  /* Never in the way of the buttons it floats over. */
+  pointer-events: none;
   padding: 7px 14px;
   border-radius: 999px;
   white-space: nowrap;
@@ -2727,10 +2720,9 @@ a.deck-tile:hover {
   color: var(--ink-3);
 }
 
-.goal--inline {
-  width: 100%;
-  max-width: 340px;
-  text-align: left;
+.study__done-today {
+  font-size: 0.86rem;
+  color: var(--ink-2);
 }
 
 .study__done-actions {
@@ -3387,6 +3379,171 @@ a.deck-tile:hover {
   background: var(--ink);
   color: var(--bg);
   box-shadow: none;
+}
+
+/* Card editor: the gap, picked word by word, and fixed wrong answers */
+
+.gap-pick__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gap-word {
+  padding: 6px 9px;
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  color: var(--ink);
+  font-family: var(--f-read);
+  font-size: 1.02rem;
+  line-height: 1.2;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.gap-word.is-plain {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-3);
+  padding-inline: 2px;
+}
+
+.gap-word.is-on {
+  background: var(--m0);
+  color: #17181c;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.gap-word:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.link-btn {
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wrong-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wrong-picks legend em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+
+.wrong-picks .method-picks__hint {
+  margin-top: 0;
+}
+
+.wrong-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.wrong-pick__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.wrong-pick__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wrong-pick__chips:empty {
+  display: none;
+}
+
+.wrong-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 5px 11px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.wrong-chip.is-own {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  padding-right: 5px;
+}
+
+.wrong-chip.is-own button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+
+.wrong-chip.is-own button:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+.wrong-chip.is-suggestion {
+  color: var(--ink-2);
+  border: 1.5px dashed var(--rule-strong);
+  padding-block: 3.5px;
+}
+
+.wrong-chip.is-suggestion:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+
+.wrong-chip svg {
+  flex: none;
+}
+
+.wrong-chip:focus-visible,
+.wrong-chip button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.wrong-pick__add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wrong-pick__add input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+}
+
+.wrong-pick__add .btn {
+  flex: none;
 }
 
 .method-picks__hint {
