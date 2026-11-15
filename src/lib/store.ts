@@ -3,17 +3,8 @@ import { builtInDecks, type SeedCard, type SeedDeck } from '../data/seed';
 import type { AppData, Card, DayLog, Deck, Settings } from '../types';
 import { iconFromEmoji } from './deckIcons';
 import { uid } from './id';
-import {
-  addDays,
-  BOX_COUNT,
-  dayKey,
-  isDue,
-  isNew,
-  MASTERED_BOX,
-  migrateLegacy,
-  schedule,
-  type Rating,
-} from './srs';
+import { savedMethod, type StudyMethod } from './quiz';
+import { addDays, dayKey, isDue, isNew, migrateLegacy, schedule, stageOf, type Rating, type Stage } from './srs';
 
 // The key keeps its v1 name so existing data (and the theme script in index.html) keep working.
 const STORAGE_KEY = 'karteikarten:v1';
@@ -118,6 +109,13 @@ export function migrate(raw: Partial<AppData>): AppData {
     data.cards = data.cards.map((c) => ({ ...c, ...migrateLegacy(c) }));
   }
   data.decks = data.decks.map((d) => (d.icon ? d : { ...d, icon: iconFromEmoji(d.emoji) }));
+  // "Hören" (and typing before it) were removed; the decks that used them get multiple choice.
+  const methods: Record<string, StudyMethod> = {};
+  for (const [key, value] of Object.entries(data.settings.methods ?? {})) {
+    const method = savedMethod(value);
+    if (method) methods[key] = method;
+  }
+  data.settings.methods = methods;
   data.version = VERSION;
   return data;
 }
@@ -158,13 +156,14 @@ export function getState(): AppData {
   return state;
 }
 
-export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag'>>;
+export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag' | 'methods'>>;
 
 /** Drops empty optional fields so they don't show up as blank sections. */
 function clean<T extends object>(input: T): T {
   const out = { ...input } as Record<string, unknown>;
   for (const key of Object.keys(out)) {
-    if (typeof out[key] === 'string') {
+    if (out[key] === undefined) delete out[key];
+    else if (typeof out[key] === 'string') {
       out[key] = (out[key] as string).trim();
       if (out[key] === '' && key !== 'front' && key !== 'back') delete out[key];
     }
@@ -207,7 +206,7 @@ export const actions = {
       ...s,
       cards: s.cards.map((c) => {
         if (c.id !== id) return c;
-        const { example: _e, note: _n, tag: _t, ...base } = c;
+        const { example: _e, note: _n, tag: _t, methods: _m, ...base } = c;
         return { ...base, ...clean(input) };
       }),
     }));
@@ -264,29 +263,23 @@ export const actions = {
 
 export interface DeckStats {
   total: number;
+  /** Never studied. */
   fresh: number;
+  /** Studied, next review within a week. */
+  learning: number;
+  /** Next review a week or more away ("sitzt"). */
+  solid: number;
   due: number;
-  mastered: number;
-  /** Cards per box ("Fach"); new cards count as box 1. */
-  boxes: number[];
-  /** 0–1, weighted by box so partial progress counts. */
-  progress: number;
 }
 
 export function deckStats(cards: Card[], now = Date.now()): DeckStats {
-  const boxes = Array<number>(BOX_COUNT).fill(0);
-  let fresh = 0;
+  const stages: Record<Stage, number> = { new: 0, learning: 0, solid: 0 };
   let due = 0;
-  let weight = 0;
   for (const c of cards) {
-    const box = Math.max(0, Math.min(MASTERED_BOX, c.box));
-    boxes[box]++;
-    weight += box;
-    if (isNew(c)) fresh++;
-    else if (isDue(c, now)) due++;
+    stages[stageOf(c)]++;
+    if (isDue(c, now)) due++;
   }
-  const total = cards.length;
-  return { total, fresh, due, mastered: boxes[MASTERED_BOX], boxes, progress: total ? weight / (total * MASTERED_BOX) : 0 };
+  return { total: cards.length, fresh: stages.new, learning: stages.learning, solid: stages.solid, due };
 }
 
 export function newCardsLeft(data: Pick<AppData, 'history' | 'settings'>, now = Date.now()): number {
@@ -318,16 +311,6 @@ export function planToday(cards: Card[], newBudget: number, deckOrder: string[] 
 export function buildSession(plan: Plan, size: number): Card[] {
   const queue = [...plan.due, ...plan.fresh];
   return size > 0 ? queue.slice(0, size) : queue;
-}
-
-/**
- * Extra round when nothing is due: weakest boxes first, then the cards not
- * seen for the longest time, shuffled so equal cards vary.
- */
-export function buildPractice(cards: Card[], size: number): Card[] {
-  const shuffled = shuffle(cards);
-  shuffled.sort((a, b) => a.box - b.box || (a.lastReviewed ?? 0) - (b.lastReviewed ?? 0));
-  return size > 0 ? shuffled.slice(0, size) : shuffled;
 }
 
 /** How many cards a round of difficult cards holds at most. */

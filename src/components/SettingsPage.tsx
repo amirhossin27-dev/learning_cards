@@ -51,6 +51,13 @@ export function SettingsPage() {
       <section className="settings-group">
         <h2>Aussprache</h2>
         {!supported && <p className="form__error">Dein Browser unterstützt keine Sprachausgabe.</p>}
+        <label className="setting setting--toggle">
+          <div className="setting__label">
+            <strong>Vorderseite automatisch vorlesen</strong>
+            <span>Liest die Frage jeder Karte vor, sobald sie erscheint, bei allen Methoden außer dem Lückentext (da wäre es die Lösung)</span>
+          </div>
+          <input type="checkbox" className="switch" checked={settings.autoSpeak} onChange={(e) => set({ autoSpeak: e.target.checked })} />
+        </label>
         <div className="setting">
           <div className="setting__label">
             <strong>Englischer Akzent</strong>
@@ -95,13 +102,6 @@ export function SettingsPage() {
             </button>
           </div>
         </div>
-        <label className="setting setting--toggle">
-          <div className="setting__label">
-            <strong>Automatisch vorlesen</strong>
-            <span>Liest jede neue Karte beim Lernen sofort vor</span>
-          </div>
-          <input type="checkbox" className="switch" checked={settings.autoSpeak} onChange={(e) => set({ autoSpeak: e.target.checked })} />
-        </label>
         <p className="form__hint">
           Tipp fürs iPhone: Unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen kannst du „Erweiterte“ Stimmen laden. Die
           klingen deutlich natürlicher. Die englischen Wörter und Sätze der mitgelieferten Stapel sind als Aufnahmen dabei und klingen auch im Stummmodus. Alles andere liest die Siri-Stimme, und die bleibt im Stummmodus still.

@@ -1,3 +1,5 @@
+import type { StudyMethod } from './lib/quiz';
+
 export type Lang = 'en-US' | 'en-GB' | 'de-DE' | 'fr-FR' | 'es-ES' | 'it-IT';
 
 export interface Card {
@@ -11,7 +13,13 @@ export interface Card {
   note?: string;
   /** Optional category used for filtering inside a deck. */
   tag?: string;
-  /** Leitner box ("Fach") 0–4, derived from the review interval. 4 = mastered. */
+  /**
+   * Study methods ticked for this card in the editor. Undefined = every method
+   * that fits the card. Methods that don't fit (a gap without a sentence) are
+   * left out either way, see `cardMethods`.
+   */
+  methods?: StudyMethod[];
+  /** Box 0–4, derived from the review interval. The UI shows it as a stage (Neu, Am Lernen, Sitzt), see `stageOf`. */
   box: number;
   /** Days until the next review; 0 while the card is new or being relearned. */
   interval?: number;
@@ -43,8 +51,6 @@ export interface Deck {
   builtIn?: boolean;
   createdAt: number;
 }
-
-import type { StudyMethod } from './lib/quiz';
 
 export type Direction = 'front' | 'back' | 'mixed';
 

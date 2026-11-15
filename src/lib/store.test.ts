@@ -3,7 +3,7 @@ import type { Card } from '../types';
 import { added } from '../data/decks/util';
 import type { SeedCard, SeedDeck } from '../data/seed';
 import { DAY } from './srs';
-import { buildPractice, buildSession, deckStats, logAnswer, migrate, newCardsLeft, planToday, streak, withBuiltIns } from './store';
+import { buildSession, deckStats, logAnswer, migrate, newCardsLeft, planToday, streak, withBuiltIns } from './store';
 
 const NOON = new Date(2026, 9, 24, 12).getTime();
 
@@ -40,22 +40,13 @@ describe('planToday', () => {
   });
 });
 
-describe('buildPractice', () => {
-  it('puts weak and long-unseen cards first and respects the size', () => {
-    const cards = [card('mastered', { box: 4, lastReviewed: 1 }), card('new'), card('old', { box: 2, lastReviewed: 1 }), card('recent', { box: 2, lastReviewed: 9 })];
-    expect(buildPractice(cards, 3).map((c) => c.id)).toEqual(['new', 'old', 'recent']);
-    expect(buildPractice(cards, 0)).toHaveLength(4);
-  });
-});
-
 describe('deckStats', () => {
-  it('counts boxes, new, due and mastered cards', () => {
+  it('counts new, learning, sitting and due cards', () => {
     const stats = deckStats(
       [card('a'), card('b', { lastReviewed: 1, due: NOON - DAY, box: 1 }), card('c', { lastReviewed: 1, due: NOON + 5 * DAY, box: 2 }), card('d', { lastReviewed: 1, due: NOON + 40 * DAY, box: 4 })],
       NOON,
     );
-    expect(stats).toMatchObject({ total: 4, fresh: 1, due: 1, mastered: 1, boxes: [1, 1, 1, 0, 1] });
-    expect(stats.progress).toBeCloseTo((0 + 1 + 2 + 4) / 16);
+    expect(stats).toEqual({ total: 4, fresh: 1, learning: 2, solid: 1, due: 1 });
   });
 });
 
@@ -85,6 +76,11 @@ describe('migrate', () => {
     expect(data.cards[1].due).toBeUndefined();
     expect(data.settings.dailyGoal).toBe(20);
     expect(data.history).toEqual({});
+  });
+
+  it('moves decks that used the removed listening method to multiple choice', () => {
+    const data = migrate({ settings: { methods: { a: 'listen', b: 'cloze', c: 'type', d: 'unknown' } } as never });
+    expect(data.settings.methods).toEqual({ a: 'choice', b: 'cloze', c: 'choice' });
   });
 });
 

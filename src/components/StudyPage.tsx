@@ -1,13 +1,13 @@
-import { ArrowLeftRight, Check, Dumbbell, Ellipsis, Plus, RotateCcw, X } from 'lucide-react';
+import { ArrowLeftRight, Check, Ellipsis, Plus, RotateCcw, Target, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCountUp } from '../hooks/useCountUp';
 import { useToday } from '../hooks/useToday';
 import { href, navigate, type StudyMode } from '../lib/router';
-import { availableMethods, buildQuestion, isPairable, pairChunk, type Question } from '../lib/questions';
-import { autoRating, FAST_ANSWER, isMethod, METHODS, type StudyMethod } from '../lib/quiz';
+import { availableMethods, buildQuestion, cardMethods, closestMethod, isPairable, methodFor, pairChunk, type Question } from '../lib/questions';
+import { autoRating, FAST_ANSWER, METHODS, savedMethod, type StudyMethod } from '../lib/quiz';
 import { resolveLang, useSpeech } from '../lib/speech';
-import { BOX_LABELS, formatWait, isNew, previewWaits, RATINGS, repeatsInSession, schedule, type Rating } from '../lib/srs';
-import { actions, buildPractice, buildSession, getState, HARD_ROUND, hardCards, newCardsLeft, planToday, shuffle, useAppData } from '../lib/store';
+import { formatWait, isNew, previewWaits, RATINGS, repeatsInSession, schedule, stageOf, type Rating } from '../lib/srs';
+import { actions, buildSession, getState, HARD_ROUND, hardCards, newCardsLeft, planToday, shuffle, useAppData } from '../lib/store';
 import type { Card, Direction } from '../types';
 import { FlipCard } from './FlipCard';
 import { ProgressRing } from './ProgressRing';
@@ -39,11 +39,10 @@ const DIRECTIONS: { value: Direction; label: string }[] = [
 const HINTS: Record<Question['kind'], string> = {
   choice: 'Tippe auf die richtige Antwort',
   cloze: 'Tippe auf das Wort, das in die Lücke gehört',
-  listen: 'Hör zu und tippe auf die Bedeutung',
   truefalse: 'Stimmt die Antwort? Tippe auf Richtig oder Falsch',
 };
 
-const MODE_LABELS: Record<StudyMode, string> = { extra: 'Freies Üben', new: 'Neue Karten', hard: 'Schwierige Karten' };
+const MODE_LABELS: Record<StudyMode, string> = { new: 'Neue Karten', hard: 'Schwierige Karten' };
 
 let nextKey = 1;
 const pickReversed = (direction: Direction) => direction === 'back' || (direction === 'mixed' && Math.random() < 0.5);
@@ -54,8 +53,7 @@ function buildQueue(deckId: string | undefined, tag: string | undefined, mode: S
   const order = s.decks.map((d) => d.id);
   const { sessionSize, newPerDay } = s.settings;
   let list: Card[];
-  if (mode === 'extra') list = buildPractice(scoped, sessionSize);
-  else if (mode === 'hard') list = hardCards(scoped).slice(0, HARD_ROUND);
+  if (mode === 'hard') list = hardCards(scoped).slice(0, HARD_ROUND);
   // One more batch of new cards, as many as a day's budget.
   else if (mode === 'new') list = planToday(scoped, sessionSize > 0 ? Math.min(sessionSize, newPerDay) : newPerDay, order).fresh;
   else list = buildSession(planToday(scoped, newCardsLeft(s), order), sessionSize);
@@ -72,13 +70,14 @@ function inWait(ms: number) {
 export function StudyPage({ deckId, tag, mode }: Props) {
   const { decks, cards, settings } = useAppData();
   const { reviews, goal } = useToday();
-  // Extra and difficult rounds count for the daily goal but leave the schedule as it is.
-  const practice = mode === 'extra' || mode === 'hard';
+  // Difficult rounds count for the daily goal but leave the schedule as it is.
+  const practice = mode === 'hard';
   const methodKey = deckId ?? (mode === 'hard' ? 'hard' : 'today');
   const deck = deckId ? decks.find((d) => d.id === deckId) : undefined;
   const scoped = useMemo(() => cards.filter((c) => (!deckId || c.deckId === deckId) && (!tag || c.tag === tag)), [cards, deckId, tag]);
   const scopeSize = scoped.length;
   const scopeNew = useMemo(() => scoped.filter(isNew).length, [scoped]);
+  const scopeHard = useMemo(() => hardCards(scoped).length, [scoped]);
   const { speak, stop, speakingKey, supported } = useSpeech(settings.speechRate);
 
   const [direction, setDirection] = useState<Direction>(settings.direction);
@@ -87,11 +86,8 @@ export function StudyPage({ deckId, tag, mode }: Props) {
   const [flipped, setFlipped] = useState(false);
   // 'swipe': the card already flies out on its own from where the finger let go.
   const [leaving, setLeaving] = useState<'left' | 'right' | 'swipe' | null>(null);
-  // "type" was a short-lived typing method; whoever picked it gets multiple choice now.
-  const [method, setMethod] = useState<StudyMethod>(() => {
-    const saved: string | undefined = settings.methods?.[methodKey];
-    return isMethod(saved) ? saved : saved === 'type' ? 'choice' : 'flip';
-  });
+  // The method chosen for the round; each card is asked with it if it can be, see `methodFor`.
+  const [method, setMethod] = useState<StudyMethod>(() => savedMethod(settings.methods?.[methodKey]) ?? 'flip');
   const [result, setResult] = useState<QuizResult | null>(null);
   const shownAt = useRef(Date.now());
   const [tally, setTally] = useState({ answers: 0, again: 0 });
@@ -144,9 +140,9 @@ export function StudyPage({ deckId, tag, mode }: Props) {
     };
   }, [current, live, cardDeck, settings]);
 
-  // Gaps need example sentences, listening a language deck, pairs short cards: only offer what fits.
-  const methods = useMemo(() => availableMethods(scoped, decks, supported), [scoped, decks, supported]);
-  const activeMethod: StudyMethod = methods.includes(method) ? method : 'flip';
+  // Gaps need example sentences, pairs short cards: only offer what fits these cards.
+  const methods = useMemo(() => availableMethods(scoped), [scoped]);
+  const activeMethod: StudyMethod = closestMethod(methods, method);
 
   // For pairs, the short cards still to come move to the front, so a round isn't cut short by a long one in between.
   useEffect(() => {
@@ -184,38 +180,38 @@ export function StudyPage({ deckId, tag, mode }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairKeys]);
 
+  // The methods this card has (shown above it), and the one it is asked with. A
+  // pair on its own (the next card is too long) is asked as the closest other method.
+  const ownMethods = useMemo(() => (live ? cardMethods(live) : []), [live]);
+  const cardMethod: StudyMethod = useMemo(() => {
+    if (!live) return 'flip';
+    const m = methodFor(live, activeMethod);
+    if (m !== 'pairs' || pairs) return m;
+    return methodFor({ ...live, methods: ownMethods.filter((x) => x !== 'pairs') }, 'pairs');
+  }, [live, activeMethod, pairs, ownMethods]);
+
   // Built once per card (and method), so the options don't reshuffle while answering.
   const quiz = useMemo<Question | null>(() => {
     if (!current || pairs) return null;
     const s = getState();
-    const data = { cards: s.cards, decks: s.decks };
-    if (activeMethod === 'pairs') {
-      const q = buildQuestion(current, 'choice', data);
-      return q && { ...q, fallback: 'Zu lang für Paare: als Auswahl' };
-    }
-    return buildQuestion(current, activeMethod, data);
+    return buildQuestion(current, cardMethod, { cards: s.cards, decks: s.decks });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.key, current?.reversed, activeMethod, pairs]);
+  }, [current?.key, current?.reversed, cardMethod, pairs]);
 
   useEffect(() => {
     shownAt.current = Date.now();
   }, [current?.key]);
 
-  // Listening plays the question on its own; it can be repeated with the big button.
-  useEffect(() => {
-    if (quiz?.kind === 'listen' && faces) speak(faces.question.text, faces.question.lang, 'q');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.key, quiz]);
-
   // Labels under the answer buttons are computed when the card is turned, so they match the moment of answering.
   const waits = useMemo(() => (flipped && live && !practice ? previewWaits(live, Date.now()) : null), [flipped, live, practice]);
 
-  // Auto-speak the question whenever a new card appears (not in a gap, where the word is the answer, nor while matching pairs).
+  // "Vorderseite automatisch vorlesen": the question is read out whenever a new card appears,
+  // in every method except a gap (there the word is the answer) and pairs (five at once).
   useEffect(() => {
-    const silent = pairs || quiz?.kind === 'cloze' || quiz?.kind === 'listen';
+    const silent = pairs || quiz?.kind === 'cloze';
     if (settings.autoSpeak && faces && !flipped && !silent) speak(faces.question.text, faces.question.lang, 'q');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, queue]);
+  }, [current?.key, cardMethod]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -247,8 +243,9 @@ export function StudyPage({ deckId, tag, mode }: Props) {
       if (repeat) text = rating === 1 ? 'Kommt gleich nochmal' : 'Kommt in dieser Runde wieder';
       else if (!practice) {
         const next = schedule(latest, rating, now);
-        const moved = next.box !== latest.box ? `${BOX_LABELS[latest.box]} → ${BOX_LABELS[next.box]}` : BOX_LABELS[next.box];
-        text = `${moved} · wieder ${inWait(next.due - now)}`;
+        const wait = inWait(next.due - now);
+        const becameSolid = stageOf(next) === 'solid' && stageOf(latest) !== 'solid';
+        text = becameSolid ? `Sitzt jetzt · wieder ${wait}` : `Wieder ${wait}`;
       }
       if (text) setFeedback({ text, id: now });
 
@@ -385,8 +382,8 @@ export function StudyPage({ deckId, tag, mode }: Props) {
             ? 'Hier landen Karten, die du zuletzt falsch beantwortet oder nach dem Lernen wieder vergessen hast. '
             : ''}
           {offerNew
-            ? `Du kannst mit ${scopeNew === 1 ? 'der letzten neuen Karte' : `${scopeNew} neuen Karten`} weitermachen oder frei üben, ohne dass sich Termine verschieben.`
-            : 'Mit Freiem Üben kannst du trotzdem weitermachen. Es zählt für dein Tagesziel, verschiebt aber keine Termine.'}
+            ? `Du kannst mit ${scopeNew === 1 ? 'der letzten neuen Karte' : `${scopeNew} neuen Karten`} weitermachen.`
+            : 'Die nächsten Karten kommen, wenn sie wieder dran sind. So bleibt das Gelernte am besten hängen.'}
         </p>
         <div className="empty__actions">
           {offerNew && (
@@ -394,9 +391,11 @@ export function StudyPage({ deckId, tag, mode }: Props) {
               <Plus size={18} /> Neue Karten lernen
             </a>
           )}
-          <a className={`btn ${offerNew ? 'btn--secondary' : 'btn--primary'}`} href={href({ name: 'study', id: deckId, tag, mode: 'extra' })}>
-            <Dumbbell size={18} /> Frei üben
-          </a>
+          {mode !== 'hard' && scopeHard > 0 && (
+            <a className={`btn ${offerNew ? 'btn--secondary' : 'btn--primary'}`} href={href({ name: 'study', id: deckId, tag, mode: 'hard' })}>
+              <Target size={18} /> Schwierige Karten üben
+            </a>
+          )}
           <a className="btn btn--ghost" href={exitHref}>
             Zurück
           </a>
@@ -463,10 +462,11 @@ export function StudyPage({ deckId, tag, mode }: Props) {
               {tag && <span className="muted">· {tag}</span>}
               {mode && <span className="chip chip--sm">{MODE_LABELS[mode]}</span>}
             </p>
+            {ownMethods.length > 1 && (
             <div className="segmented segmented--sm study__methods" role="radiogroup" aria-label="Lernmethode">
-              {METHODS.filter((m) => methods.includes(m.value)).map(({ value, label }) => {
+              {METHODS.filter((m) => ownMethods.includes(m.value)).map(({ value, label }) => {
                 const Icon = METHOD_ICONS[value];
-                const active = activeMethod === value;
+                const active = (pairs ? 'pairs' : cardMethod) === value;
                 return (
                   <button key={value} role="radio" aria-checked={active} className={active ? 'is-active' : ''} onClick={() => changeMethod(value)}>
                     <Icon size={15} /> {label}
@@ -474,6 +474,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
                 );
               })}
             </div>
+            )}
           </div>
 
           {pairs ? (
@@ -524,7 +525,7 @@ export function StudyPage({ deckId, tag, mode }: Props) {
                         <kbd>1</kbd>–<kbd>{quiz.options.length}</kbd> auswählen
                       </>
                     )}{' '}
-                    · <kbd>Enter</kbd> weiter · <kbd>S</kbd> {quiz.kind === 'listen' ? 'nochmal hören' : 'vorlesen'}
+                    · <kbd>Enter</kbd> weiter · <kbd>S</kbd> vorlesen
                   </span>
                 </p>
               </div>
@@ -648,7 +649,7 @@ function SessionDone({ cards, answers, again, reviews, goal, onRestart, exitHref
       </div>
       <div className="study__done-actions">
         <button className="btn btn--primary btn--lg" onClick={onRestart}>
-          {mode === 'extra' ? <Dumbbell size={18} /> : mode === 'new' ? <Plus size={18} /> : <RotateCcw size={18} />}{' '}
+          {mode === 'new' ? <Plus size={18} /> : <RotateCcw size={18} />}{' '}
           {mode === 'new' ? 'Weitere neue Karten' : 'Noch eine Runde'}
         </button>
         <a className="btn btn--ghost btn--lg" href={exitHref}>

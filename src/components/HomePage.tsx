@@ -3,11 +3,10 @@ import { useMemo, useState } from 'react';
 import { useToday } from '../hooks/useToday';
 import { availableMethods } from '../lib/questions';
 import { href } from '../lib/router';
-import { useSpeech } from '../lib/speech';
 import { addDays, endOfDay, isNew } from '../lib/srs';
 import { deckStats, HARD_ROUND, hardCards, minutesFor, useAppData } from '../lib/store';
 import type { Card } from '../types';
-import { BoxBar } from './BoxBar';
+import { solidText, StageBar } from './StageBar';
 import { DeckEditor } from './DeckEditor';
 import { DeckTile } from './DeckTile';
 import { GoalCard } from './GoalCard';
@@ -27,8 +26,7 @@ function greeting(now: number) {
 }
 
 export function HomePage() {
-  const { decks, cards, history, settings } = useAppData();
-  const { supported } = useSpeech(settings.speechRate);
+  const { decks, cards, history } = useAppData();
   const { now, plan, count, reviews, goal, streak } = useToday();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -53,8 +51,8 @@ export function HomePage() {
 
   const all = deckStats(cards, now);
   const hard = useMemo(() => Math.min(hardCards(cards).length, HARD_ROUND), [cards]);
-  const methods = useMemo(() => availableMethods(cards, decks, supported), [cards, decks, supported]);
-  // The big button: what is due, else new cards beyond today's budget, else free practice.
+  const methods = useMemo(() => availableMethods(cards), [cards]);
+  // The big button: what is due, else new cards beyond today's budget, else nothing until tomorrow.
   const launch =
     cards.length === 0
       ? { route: null, title: 'Weiterlernen', subtitle: 'Leg zuerst einen Stapel mit Karten an' }
@@ -70,12 +68,7 @@ export function HomePage() {
               title: 'Neue Karten lernen',
               subtitle: `${all.fresh} neue ${all.fresh === 1 ? 'Karte wartet' : 'Karten warten'}`,
             }
-          : {
-              route: { name: 'study', mode: 'extra' } as const,
-              title: 'Frei üben',
-              subtitle: 'Zählt fürs Tagesziel, verschiebt keine Termine',
-              isPractice: true,
-            };
+          : { route: null, title: 'Für heute erledigt', subtitle: 'Morgen geht es weiter' };
   const goalCard = <GoalCard reviews={reviews} goal={goal} streak={streak} />;
 
   return (
@@ -112,7 +105,7 @@ export function HomePage() {
             </>
           )}
           <div className="only-narrow">{goalCard}</div>
-          <StudyLauncher {...launch} scope={{ name: 'study' }} hard={hard} methods={methods} methodKey="today">
+          <StudyLauncher {...launch} hasCards={cards.length > 0} scope={{ name: 'study' }} hard={hard} methods={methods} methodKey="today">
             <button type="button" className="launcher__chip hide-mobile" onClick={() => setImporting(true)}>
               <Upload size={15} /> CSV importieren
             </button>
@@ -158,7 +151,13 @@ export function HomePage() {
           <h3 className="rail-title">
             Lernstand <span>{all.total} Karten</span>
           </h3>
-          <BoxBar boxes={all.boxes} legend size="md" />
+          <div className="rail-progress">
+            <p className="stagebar__head">
+              <strong>{solidText(all)}</strong>
+              {all.total > 0 && <span>{Math.round((all.solid / all.total) * 100)} %</span>}
+            </p>
+            <StageBar stats={all} legend size="md" />
+          </div>
         </section>
       </aside>
 

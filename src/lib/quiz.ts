@@ -2,18 +2,27 @@ import type { Rating } from './srs';
 
 /** Building blocks for the quiz methods: picking wrong answers, gaps in sentences and rating the result. */
 
-export type StudyMethod = 'flip' | 'choice' | 'cloze' | 'listen' | 'pairs' | 'truefalse';
+export type StudyMethod = 'flip' | 'choice' | 'cloze' | 'pairs' | 'truefalse';
 
 export const METHODS: { value: StudyMethod; label: string }[] = [
   { value: 'flip', label: 'Karte' },
   { value: 'choice', label: 'Auswahl' },
   { value: 'cloze', label: 'Lückentext' },
-  { value: 'listen', label: 'Hören' },
   { value: 'pairs', label: 'Paare' },
   { value: 'truefalse', label: 'Richtig/Falsch' },
 ];
 
 export const isMethod = (value: unknown): value is StudyMethod => METHODS.some((m) => m.value === value);
+
+/**
+ * A stored method choice as it is used today. "Hören" and the short-lived
+ * typing method were removed again; whoever picked one gets multiple choice.
+ */
+export function savedMethod(value: unknown): StudyMethod | undefined {
+  if (isMethod(value)) return value;
+  if (value === 'listen' || value === 'type') return 'choice';
+  return undefined;
+}
 
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
 
