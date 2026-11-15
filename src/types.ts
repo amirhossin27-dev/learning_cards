@@ -1,4 +1,5 @@
 import type { StudyMethod } from './lib/quiz';
+import type { SoundLevel } from './lib/sounds';
 
 export type Lang = 'en-US' | 'en-GB' | 'de-DE' | 'fr-FR' | 'es-ES' | 'it-IT';
 
@@ -69,12 +70,9 @@ export interface Settings {
   englishAccent: 'en-US' | 'en-GB';
   speechRate: number;
   autoSpeak: boolean;
+  /** The tones for a right and a wrong answer. */
+  sounds: SoundLevel;
   direction: Direction;
-  sessionSize: number;
-  /** Answers per day that count as reaching the daily goal. */
-  dailyGoal: number;
-  /** New cards introduced per day across all decks. */
-  newPerDay: number;
   /** Study method per deck id ("today" and "hard" for the rounds across all decks). */
   methods: Record<string, StudyMethod>;
 }

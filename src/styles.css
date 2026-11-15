@@ -792,37 +792,6 @@ kbd {
   }
 }
 
-/* Progress ring */
-
-.ring {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-}
-
-.ring svg {
-  position: absolute;
-  inset: 0;
-}
-
-.ring__track {
-  stroke: var(--tint);
-}
-
-.ring__value {
-  stroke: var(--ink);
-  transition: stroke-dashoffset 0.6s var(--ease);
-}
-
-.ring__label {
-  position: relative;
-  font-family: var(--f-mono);
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Leitner box bar */
 
 .stagebar {
@@ -1030,10 +999,17 @@ kbd {
   color: var(--ink-2);
 }
 
-.goal.is-reached .ring__label {
-  background: var(--hl);
-  border-radius: 4px;
-  padding: 0 3px;
+.goal__count {
+  min-width: 52px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: var(--tint);
+  font-family: var(--f-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ==========================================================================
@@ -1843,31 +1819,46 @@ a.deck-tile:hover {
 
 .study__bar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 40px;
   align-items: center;
   gap: 12px;
 }
 
-.study__progress {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--tint);
+.study__tally {
+  min-width: 0;
   overflow: hidden;
-}
-
-.study__progress i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--ink);
-  transition: width 0.35s var(--ease);
-}
-
-.study__count {
-  font-family: var(--f-mono);
-  font-size: 0.78rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.86rem;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
+}
+
+.study__tally strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.study__stop {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.study__stop:hover {
+  background: var(--rule-strong);
+}
+
+.study__stop:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .study__deck {
@@ -2189,6 +2180,8 @@ a.deck-tile:hover {
   left: 50%;
   bottom: calc(100% + 14px);
   transform: translateX(-50%);
+  /* Never in the way of the buttons it floats over. */
+  pointer-events: none;
   padding: 7px 14px;
   border-radius: 999px;
   white-space: nowrap;
@@ -2727,10 +2720,9 @@ a.deck-tile:hover {
   color: var(--ink-3);
 }
 
-.goal--inline {
-  width: 100%;
-  max-width: 340px;
-  text-align: left;
+.study__done-today {
+  font-size: 0.86rem;
+  color: var(--ink-2);
 }
 
 .study__done-actions {

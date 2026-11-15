@@ -3,7 +3,7 @@ import type { Card } from '../types';
 import { added } from '../data/decks/util';
 import type { SeedCard, SeedDeck } from '../data/seed';
 import { DAY } from './srs';
-import { buildSession, deckStats, logAnswer, migrate, newCardsLeft, planToday, streak, withBuiltIns } from './store';
+import { buildStream, deckStats, logAnswer, migrate, planToday, requeue, streak, withBuiltIns } from './store';
 
 const NOON = new Date(2026, 9, 24, 12).getTime();
 
@@ -18,7 +18,7 @@ const card = (id: string, fields: Partial<Card> = {}): Card => ({
 });
 
 describe('planToday', () => {
-  it('lists due cards (most overdue first) and new cards within the budget', () => {
+  it('lists due cards (most overdue first) and all new cards in deck order', () => {
     const cards = [
       card('later', { lastReviewed: 1, due: NOON + 3 * DAY, box: 2 }),
       card('due-today', { lastReviewed: 1, due: NOON + 2 * 3600_000, box: 1 }),
@@ -27,16 +27,38 @@ describe('planToday', () => {
       card('new-a', { deckId: 'a', createdAt: 2 }),
       card('new-a2', { deckId: 'a', createdAt: 3 }),
     ];
-    const plan = planToday(cards, 2, ['a', 'b'], NOON);
+    const plan = planToday(cards, ['a', 'b'], NOON);
     expect(plan.due.map((c) => c.id)).toEqual(['overdue', 'due-today']);
-    expect(plan.fresh.map((c) => c.id)).toEqual(['new-a', 'new-a2']);
-    expect(buildSession(plan, 3).map((c) => c.id)).toEqual(['overdue', 'due-today', 'new-a']);
+    expect(plan.fresh.map((c) => c.id)).toEqual(['new-a', 'new-a2', 'new-b']);
+  });
+});
+
+describe('buildStream', () => {
+  const same = <T,>(items: T[]) => items;
+  const due = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'].map((id) => card(id, { lastReviewed: 1, due: 1 }));
+  const fresh = ['n1', 'n2', 'n3', 'n4'].map((id) => card(id));
+
+  it('mixes a new card in after every three cards to repeat, then goes on with the new ones', () => {
+    const ids = buildStream({ due, fresh }, same).map((c) => c.id);
+    expect(ids).toEqual(['d1', 'd2', 'd3', 'n1', 'd4', 'd5', 'd6', 'n2', 'd7', 'n3', 'n4']);
   });
 
-  it('counts how many new cards are left for today', () => {
-    const settings = { newPerDay: 10 } as never;
-    expect(newCardsLeft({ settings, history: {} }, NOON)).toBe(10);
-    expect(newCardsLeft({ settings, history: { '2026-10-24': { reviews: 30, fresh: 12 } } }, NOON)).toBe(0);
+  it('works with only new cards and with nothing new', () => {
+    expect(buildStream({ due: [], fresh }, same).map((c) => c.id)).toEqual(['n1', 'n2', 'n3', 'n4']);
+    expect(buildStream({ due, fresh: [] }, same)).toHaveLength(7);
+    expect(buildStream({ due: [], fresh: [] })).toEqual([]);
+  });
+
+  it('shuffles what is due but keeps every card exactly once', () => {
+    const ids = buildStream({ due, fresh }).map((c) => c.id);
+    expect([...ids].sort()).toEqual([...due, ...fresh].map((c) => c.id).sort());
+  });
+});
+
+describe('requeue', () => {
+  it('brings a card back a few places later, or at the end of a short queue', () => {
+    expect(requeue(['a', 'b', 'c', 'd', 'e', 'f'], 1, ['b2'], 3)).toEqual(['a', 'b', 'c', 'd', 'e', 'b2', 'f']);
+    expect(requeue(['a', 'b'], 1, ['b2'], 3)).toEqual(['a', 'b', 'b2']);
   });
 });
 
@@ -74,8 +96,15 @@ describe('migrate', () => {
     expect(data.decks[0].icon).toBe('briefcase');
     expect(data.cards[0]).toMatchObject({ interval: 7, box: 3, due: NOON + 7 * DAY });
     expect(data.cards[1].due).toBeUndefined();
-    expect(data.settings.dailyGoal).toBe(20);
     expect(data.history).toEqual({});
+  });
+
+  it('drops the daily goal, round size and new cards per day from stored settings', () => {
+    const data = migrate({ settings: { dailyGoal: 30, sessionSize: 10, newPerDay: 5, autoSpeak: true } as never });
+    expect(data.settings).not.toHaveProperty('dailyGoal');
+    expect(data.settings).not.toHaveProperty('sessionSize');
+    expect(data.settings).not.toHaveProperty('newPerDay');
+    expect(data.settings.autoSpeak).toBe(true);
   });
 
   it('moves decks that used the removed listening method to multiple choice', () => {

@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react';
 
 // Hash routing keeps deep links working on GitHub Pages without a server.
-export type StudyMode = 'new' | 'hard';
+export type StudyMode = 'hard';
 
 // The URL uses German words, the code English ones.
-// "Freies Üben" (modus=extra) is gone; an old link to it opens the normal round.
-const MODE_PARAM: Record<StudyMode, string> = { new: 'neu', hard: 'schwierig' };
+// "Freies Üben" (modus=extra) and "Neue Karten" (modus=neu) are gone; an old link to them just opens the cards to learn.
+const MODE_PARAM: Record<StudyMode, string> = { hard: 'schwierig' };
 
 export type Route =
   | { name: 'home' }
   | { name: 'decks' }
   | { name: 'deck'; id: string }
   /**
-   * `id` undefined = today's round across all decks.
-   * `new` = learn new cards beyond today's budget,
+   * `id` undefined = learn across all decks.
    * `hard` = practise the difficult cards (the schedule stays as it is).
    */
   | { name: 'study'; id?: string; tag?: string; mode?: StudyMode }

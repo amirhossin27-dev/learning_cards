@@ -14,12 +14,14 @@ interface Props {
   leaving: boolean;
   /** Called with the number of wrong attempts per card id once every pair is found and "Weiter" is tapped. */
   onDone: (mistakes: Record<string, number>) => void;
+  /** Called for every attempt: whether the two tiles belong together. */
+  onMatch?: (right: boolean) => void;
 }
 
 type Side = 'q' | 'a';
 
 /** Match questions with answers: tap one on the left and one on the right. */
-export function PairsBoard({ pairs, leaving, onDone }: Props) {
+export function PairsBoard({ pairs, leaving, onDone, onMatch }: Props) {
   // Both columns are shuffled once, so they don't jump around while playing.
   const left = useMemo(() => shuffled(pairs, Math.random), [pairs]);
   const right = useMemo(() => shuffled(pairs, Math.random), [pairs]);
@@ -49,6 +51,7 @@ export function PairsBoard({ pairs, leaving, onDone }: Props) {
     const q = side === 'q' ? id : selected.id;
     const a = side === 'a' ? id : selected.id;
     setSelected(null);
+    onMatch?.(q === a);
     if (q === a) {
       setMatched((m) => new Set(m).add(q));
     } else {
