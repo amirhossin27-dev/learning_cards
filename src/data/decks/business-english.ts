@@ -199,6 +199,32 @@ const travel = group('Geschäftsreise', [
   { front: 'per diem', back: 'Tagespauschale, Tagegeld (für Verpflegung)', example: 'The per diem for trips abroad is 50 euros.', note: 'Lateinisch für „pro Tag“.' },
 ]);
 
+const contracts = group('Verträge', [
+  { front: 'to sign a contract', back: 'einen Vertrag unterschreiben', example: 'We signed the contract with the new supplier last week.' },
+  { front: 'terms and conditions', back: 'Geschäftsbedingungen, AGB', example: 'Please read the terms and conditions carefully before you accept.', note: 'Kurz: T&Cs.' },
+  { front: 'clause', back: 'Klausel, Vertragsbestimmung', example: 'There is a clause that allows either party to cancel the order.' },
+  { front: 'party (to a contract)', back: 'Vertragspartei', example: 'Both parties have agreed to the new terms.', note: 'Nicht nur „Feier“: Im Vertrag ist party jede beteiligte Seite.' },
+  { front: 'binding', back: 'verbindlich, bindend', example: 'The offer is binding for 30 days.', note: 'legally binding = rechtsverbindlich.' },
+  { front: 'to terminate a contract', back: 'einen Vertrag kündigen, beenden', example: "Either party may terminate the contract with three months' notice.", note: 'to cancel passt eher zu Bestellungen, Terminen und Abos.' },
+  { front: 'to renew', back: 'verlängern (Vertrag, Abo)', example: 'The contract renews automatically every year unless you cancel it.' },
+  { front: 'liability', back: 'Haftung', example: 'Our liability is limited to the value of the order.', note: 'to be liable for something = für etwas haften.' },
+  { front: 'to amend', back: '(einen Vertrag) ändern, ergänzen', example: 'We need to amend the contract to include the new prices.', note: 'Die Änderung selbst heißt amendment.' },
+  { front: 'the fine print', back: 'das Kleingedruckte', example: 'Always read the fine print before you sign anything.', note: 'Britisch auch: the small print.' },
+]);
+
+const feedback = group('Feedback geben', [
+  { front: 'Can I give you some feedback?', back: 'Darf ich dir/Ihnen ein Feedback geben?', example: 'Can I give you some feedback on your presentation?', note: 'Mit einer Frage einsteigen – so ist das Gegenüber vorbereitet.' },
+  { front: 'constructive criticism', back: 'konstruktive Kritik', example: 'I appreciate constructive criticism – it helps me improve.' },
+  { front: 'to point out', back: 'auf etwas hinweisen', example: "I'd like to point out a few things in the report." },
+  { front: 'room for improvement', back: 'Verbesserungspotenzial', example: "The design is good, but there's still some room for improvement.", note: 'Diplomatisch für „Das ist noch nicht gut genug“.' },
+  { front: 'to be on the right track', back: 'auf dem richtigen Weg sein', example: "You're on the right track – keep going." },
+  { front: 'Keep up the good work!', back: 'Weiter so!', example: 'Great results this quarter – keep up the good work!' },
+  { front: 'to appreciate', back: 'schätzen; dankbar sein für', example: 'I really appreciate your help with the project.', note: "I'd appreciate it if you could … = höfliche Bitte." },
+  { front: 'to come across as', back: '(auf andere) wirken', example: 'Your email might come across as a bit harsh.', note: 'So kritisiert man die Wirkung, nicht die Person.' },
+  { front: 'to take something on board', back: 'etwas annehmen, beherzigen', example: "Thanks for the feedback – I'll take it on board.", note: 'Vor allem britisch.' },
+  { front: 'performance review', back: 'Mitarbeitergespräch, Leistungsbeurteilung', example: 'My annual performance review is next week.', note: 'Auch: appraisal.' },
+]);
+
 export const businessEnglishDeck: SeedDeck = {
   id: 'business-english',
   name: 'Corporate Business English',
@@ -218,5 +244,6 @@ export const businessEnglishDeck: SeedDeck = {
     ...added('2026-10-25', [...presentations, ...networking]),
     ...added('2026-10-31', [...phone, ...hiring]),
     ...added('2026-11-07', [...service, ...travel]),
+    ...added('2026-11-14', [...contracts, ...feedback]),
   ],
 };

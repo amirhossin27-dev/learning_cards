@@ -31,7 +31,7 @@ Prüfen vor dem Pull Request:
 - [x] Denkfehler & Psychologie (2026-10-25)
 - [x] Weltraum & Astronomie (2026-10-31)
 - [x] Geld & Finanzen (2026-11-07)
-- [ ] Redewendungen und ihre Herkunft
+- [x] Redewendungen und ihre Herkunft (2026-11-14)
 - [ ] Krypto & Blockchain
 - [ ] Künstliche Intelligenz: Grundbegriffe
 - [ ] IT-Sicherheit im Alltag
@@ -56,8 +56,8 @@ Prüfen vor dem Pull Request:
 
 ### Themen für Business English
 
-Verträge, Marketing & Vertrieb, Zahlen und Berichte, Phrasal Verbs, Idioms, Feedback geben, Remote Work, IT-Projekte, weitere Grammatik-Eselsbrücken, weitere False Friends.
+Marketing & Vertrieb, Zahlen und Berichte, Phrasal Verbs, Idioms, Remote Work, IT-Projekte, weitere Grammatik-Eselsbrücken, weitere False Friends.
 
 ### Themen für Programmieren Basics
 
-Mehr JavaScript, mehr Python, Sortieren und Suchen, Clean Code und SOLID, Cloud & DevOps, Netzwerke, Datenformate (YAML, CSV, XML), reguläre Ausdrücke, Web-Sicherheit (OWASP), Anmeldung & Tokens (OAuth, JWT).
+Mehr JavaScript, weitere SOLID-Prinzipien, Cloud & DevOps, Netzwerke, reguläre Ausdrücke, Web-Sicherheit (OWASP), Anmeldung & Tokens (OAuth, JWT).
