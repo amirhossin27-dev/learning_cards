@@ -156,13 +156,13 @@ export function getState(): AppData {
   return state;
 }
 
-export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag' | 'methods'>>;
+export type CardInput = Pick<Card, 'front' | 'back'> & Partial<Pick<Card, 'example' | 'note' | 'tag' | 'methods' | 'gap' | 'wrong' | 'wrongGap'>>;
 
 /** Drops empty optional fields so they don't show up as blank sections. */
 function clean<T extends object>(input: T): T {
   const out = { ...input } as Record<string, unknown>;
   for (const key of Object.keys(out)) {
-    if (out[key] === undefined) delete out[key];
+    if (out[key] === undefined || (Array.isArray(out[key]) && out[key].length === 0)) delete out[key];
     else if (typeof out[key] === 'string') {
       out[key] = (out[key] as string).trim();
       if (out[key] === '' && key !== 'front' && key !== 'back') delete out[key];
@@ -206,7 +206,7 @@ export const actions = {
       ...s,
       cards: s.cards.map((c) => {
         if (c.id !== id) return c;
-        const { example: _e, note: _n, tag: _t, methods: _m, ...base } = c;
+        const { example: _e, note: _n, tag: _t, methods: _m, gap: _g, wrong: _w, wrongGap: _wg, ...base } = c;
         return { ...base, ...clean(input) };
       }),
     }));

@@ -82,4 +82,19 @@ describe('exportCsv', () => {
     expect(csv.startsWith('﻿front,back,example,note,tag')).toBe(true);
     expect(importCsv(csv).cards).toEqual(cards);
   });
+
+  it('adds columns for the gap and the fixed wrong answers only when a card has them', () => {
+    const cards = [
+      { front: 'to follow up', back: 'nachfassen', example: 'I followed up with the client.', gap: 'followed up', wrong: ['abmelden', 'nachschlagen'], wrongGap: ['signed off'] },
+      { front: 'deadline', back: 'Frist' },
+    ];
+    const csv = exportCsv(cards);
+    expect(csv.startsWith('﻿front,back,example,note,tag,gap,wrong,wrong_gap')).toBe(true);
+    expect(csv).toContain('followed up,abmelden | nachschlagen,signed off');
+    expect(importCsv(csv).cards).toEqual(cards);
+  });
+
+  it('never reads a gap from a file without a header row', () => {
+    expect(importCsv('to follow up,nachfassen,I followed up.,,E-Mail,followed up').cards[0]).not.toHaveProperty('gap');
+  });
 });

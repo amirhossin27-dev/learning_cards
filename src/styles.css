@@ -3389,6 +3389,171 @@ a.deck-tile:hover {
   box-shadow: none;
 }
 
+/* Card editor: the gap, picked word by word, and fixed wrong answers */
+
+.gap-pick__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gap-word {
+  padding: 6px 9px;
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  color: var(--ink);
+  font-family: var(--f-read);
+  font-size: 1.02rem;
+  line-height: 1.2;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.gap-word.is-plain {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-3);
+  padding-inline: 2px;
+}
+
+.gap-word.is-on {
+  background: var(--m0);
+  color: #17181c;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.gap-word:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.link-btn {
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wrong-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wrong-picks legend em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+
+.wrong-picks .method-picks__hint {
+  margin-top: 0;
+}
+
+.wrong-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.wrong-pick__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.wrong-pick__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wrong-pick__chips:empty {
+  display: none;
+}
+
+.wrong-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 5px 11px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.wrong-chip.is-own {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  padding-right: 5px;
+}
+
+.wrong-chip.is-own button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+
+.wrong-chip.is-own button:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+.wrong-chip.is-suggestion {
+  color: var(--ink-2);
+  border: 1.5px dashed var(--rule-strong);
+  padding-block: 3.5px;
+}
+
+.wrong-chip.is-suggestion:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+
+.wrong-chip svg {
+  flex: none;
+}
+
+.wrong-chip:focus-visible,
+.wrong-chip button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.wrong-pick__add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wrong-pick__add input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+}
+
+.wrong-pick__add .btn {
+  flex: none;
+}
+
 .method-picks__hint {
   display: block;
   margin-top: 8px;
